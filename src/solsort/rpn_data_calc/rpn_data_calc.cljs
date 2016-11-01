@@ -1,7 +1,8 @@
 (ns solsort.rpn-data-calc.rpn-data-calc
   (:require-macros
    [cljs.core.async.macros :refer [go go-loop alt!]]
-   [reagent.ratom :as ratom :refer  [reaction]])
+   [reagent.ratom :as ratom :refer  [reaction]]
+   [solsort.toolbox.macros])
   (:require
    [cljs.reader]
    [solsort.toolbox.setup]
@@ -23,113 +24,183 @@
          entry-height 36
          input-height (* 6 entry-height)
          code-height (- total-height input-height entry-height)
-         stack-width (- total-width entry-width)
-]
+         stack-width (- total-width entry-width)]
      {"body"
       {:margin 0 :padding 0}
+      ".current"
+      {:background "#eee"}
       "div"
       {:margin 0
        :padding 0}
-      :.val
-      {:text-align :right}
-      "#main"
-      {:fonts-size (/ entry-height 2)
-       :background-color :yellow}
       :.entry
       {:display :inline-block
+       :white-space :nowrap
+       :overflow :hidden
        :width entry-width
        :height entry-height
-       :outline "1px solid black"
-       }
-      "#code"
-      {
-       :position :fixed
-       :top 0
-       :left 0
-       :display :inline-block
-       :width entry-width
-       :height code-height
-       :overflow-y :auto
-       :overflow-x :auto
-       :scroll :auto
-       :background-color :red}
-      "#top"
-      {:position :fixed
-       :background :yellow
-       :top code-height
-       :left 0}
-      "#object"
-      {:display :inline-block
-       :position :fixed
-       :top 0
-       :right 0
-       :width (- total-width entry-width)
-       :height code-height
-       :background-color :yellow}
-      "#input"
-      {:position :fixed
-       :bottom 0
-       :left 0
-       :line-height 10
-       :background :blue
-       :height input-height}
-      "#input > div"
-      {:display :inline-block
-       :white-space :nowrap
-       :line-height "100%"
-       :overflow-y :auto
-       :overflow-x :auto
-       :height entry-height
-       :width total-width
-       :background-color :blue}
-      "#stack"
-      {:position :fixed
-       :top code-height
-       :right 0
-       :display :inline-block
-       :white-space :nowrap
-       :overflow-y :auto
-       :overflow-x :auto
-       :height entry-height
-       :width stack-width
-       :background-color :green}})
+       :outline "1px solid black"}})
    :styling))
 (js/window.addEventListener "resize" styling)
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
 (styling)
 
-(defn code-view []
-  (into
-   [:div#code]
-   (for [i (range 20)]
-     [:div.entry
-      [:div.fn "hello"]
-      [:div.val i]])))
-(defn stack-view []
-  (into
-   [:div#stack]
-   (for [i (range 20)]
-     [:div.entry
-      [:div.fn "hello"]
-      [:div.val i]])))
+;; +---------------------+
+;; | (expr ... )         |
+;; +---------------------+
+;; |                     |
+;; |                     |
+;; |     Object          |
+;; |                     |
+;; |                     |
+;; +---------------------+
+;; | 123 abc world ...   |
+;; +----+------+---------+
+;; | fn | prop | obj obj |
+;; | fn | prop | obj obj |
+;; | fn | prop | obj obj |
+;; | fn | prop | obj obj |
+;; +----+------+---------+
+;;
+;;
+;; +---------------------+
+;; | (expr ... )         |
+;; +---------------------+
+;; |  fn  |              |
+;; |      |              |
+;; |      |              |
+;; +------+   Object     |
+;; | prop |              |
+;; |      |              |
+;; |      |              |
+;; +---------------------+
+;; | 123 abc world ...   |
+;; +---------------------+
+;; | obj obj obj obj obj |
+;; | obj obj obj obj obj |
+;; +---------------------+
+;;
+;;
+;; +---------------------------------+
+;; | (expr ... )                     |
+;; +------+-------------------+------+
+;; |  fn  |                   | obj  |
+;; |      |                   | obj  |
+;; +------+     Object        | obj  |
+;; | prop |                   |      |
+;; |      |                   |      |
+;; +------+-------------------+------+
+;; | 123 abc world ...               |
+;; +---------------------------------+
+;;
+
+(deftype Number [val]
+  Object
+  (add [_ y] (Number. (+ val (.-val y))))
+  (sub [_ y] (Number. (- val (.-val y))))
+  (mul [_ y] (Number. (* val (.-val y))))
+  (toJSON [_] #js ["value" val])
+  (toString [_] (str val)))
+
+(deftype String [val]
+  Object
+  (toJSON [_] #js ["value" val])
+  (toString [_] (str val)))
+
 (defn object-view []
-  [:div#object])
-(defn input-view []
-  [:div#input
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   (into [:div] (for [i (range 100)] [:div.entry [:div.fn i] [:div.val ""]]))
-   ]
+  (cond
+    (= (db [:ui :input]) :string)
+    [:form
+     {:on-submit
+      (fn [e]
+        (.preventDefault e)
+        (let [val (db [:ui :value] "")]
+          (db! [:data]
+               (conj (db [:data] [])
+                     {:code val
+                      :val val})))
+        (db! [:ui :input]))}
+     [:textarea
+      {:auto-focus true
+       :on-change
+       (fn [e]
+         (db! [:ui :value] (String. (-> e (.-target) (.-value)))))}]
+     [:input
+      {:type :submit}]]
+    (= (db [:ui :input]) :number)
+    [:form
+     {:on-submit
+      (fn [e]
+        (.preventDefault e)
+        (let [val (db [:ui :value] 0)]
+          (db! [:data]
+               (conj (db [:data] [])
+                     {:code val
+                      :val val})))
+        (db! [:ui :input]))}
+     [:input
+      {:auto-focus true
+       :inputmode :numeric
+       :on-change (fn [e] (db! [:ui :value] (Number. (js/parseFloat (-> e (.-target) (.-value))))))}]
+     #_[:input
+        {:type :submit}]]
+    :else [:div "obj"]))
+(defn command-bar []
+  [:div
+   [:button
+    {:on-click
+     (fn []
+       (db! [:ui :current] (count (db [:data] [])))
+       (db! [:ui :input] :number))}
+    "123.."]
+   [:button
+    {:on-click 
+    (fn []
+      (db! [:ui :current] (count (db [:data] [])))
+      (db! [:ui :input] :string))}
+    "abc.."]])
+(defn data-view []
+  (into
+   [:div]
+   (reverse
+    (map-indexed
+     (fn [i o]
+       [:div.entry
+        {:on-click #(db! [:ui :current] i)
+         :class (if (= i (db [:ui :current])) "current" "")}
+        (JSON.stringify (clj->js (get o :code ""))) [:br] (str (get o :val ""))])
+     (db [:data] [])))))
+(into
+ [:div]
+ (reverse
+  (map-indexed
+   (fn [i o]
+     [:div.entry (str i) [:br] (str o)])
+   (db [:data] []))
+  #_(for [o (db [:data] [])]
+      [:div.entry
+       (JSON.stringify (clj->js (get o :code)))
+       [:br]
+       (str (get o :val))])))
+(defn fn-list [o]
+   ;[:div.fn-list (str (.-constructor (o)))]
+  [:div (str (remove #{"constructor"}(js->clj (js/Object.getOwnPropertyNames (.-prototype (.-constructor o))))))]
+   )
+(defn prop-list [o]
+  [:div.fn-list
+   (str (js->clj (js/Object.getOwnPropertyNames o)))
+   ])
+   
+(defn main []
+  (let [obj (db [:data (db [:ui :current] -1)] {})
+        val (get obj :val #js{})]
+    (log 'here obj val)
+   [:div
+    [object-view obj]
+    [fn-list val]
+    [prop-list val]
+    [command-bar]
+    [data-view]])
   )
 (render
- [:div
-  [code-view]
-  [object-view]
-  [:div#top.entry
-    [:div.fn "hello"]
-    [:div.val 123]]
-  [stack-view]
-  [input-view]])
+ [main]
+ )
