@@ -1,7 +1,5 @@
 # touchlang ![](https://touchlang.solsort.com/icon-small.png)
 
-Needs renaming as it is moving towards s-expressions, rather than straight RPN
-
 The purpose is to make a touch-oriented tool/programming environment for interacting with data, and making apps.
 
 Ideas:
@@ -11,4 +9,4 @@ Ideas:
 - Concrete data, - work with concrete data
 - zoomable / time-travelling debugger / code exploration.
 
-[notes](./notes.org)
+[Notes](./touchlang.org)
