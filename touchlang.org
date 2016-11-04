@@ -2,7 +2,6 @@
 ** Language as data
 Code as data instead of text.
 
-```json
 #+BEGIN_SRC JSON
 {"name": "demo/hello"
 "args": ["a", "b"],
