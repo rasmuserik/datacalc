@@ -1,0 +1,85 @@
+* Data structure
+** Language as data
+Code as data instead of text.
+
+```json
+#+BEGIN_SRC JSON
+{"name": "demo/hello"
+"args": ["a", "b"],
+"code": ["if" ["<" "a" "b"] ["str" "a is smallest"] ["str" "b is smallest"]]}
+#+END_SRC
+
+transforms into
+
+#+BEGIN_SRC JavaScript
+function demo$hello(a, b) {
+  return a["<"](b) ? "a is smallest" : "b is smallest";
+}
+#+END_SRC
+
+
+
+* UI
+** Elements:
+
+- sexpr - The sexpression generating the currently selected object
+- main - Object view: representation of current live object selected, or function + documentation
+- fns - Method/function list
+- props - special methods on objects, ie. direct access to properties on json-objects/arrays, special easy-access methods etc..
+- objs - history of all objects interacted with
+- actions - button bar for inteactions / changing modus
+  - close - ends current method-call/function
+  - delete - backspace one token
+  - Make function - select result + parameters in objs to create a new function
+  - world - monad with access to state-object, constructors, functions, macros
+
+** Screens
+#+BEGIN_SRC ditaa :file assets/ui-portrait1.png
++---------------------+
+| (expr ... )         |
++---------------------+
+|                     |
+|                     |
+|     Object          |
+|                     |
+|                     |
++----+------+---------+
+| fn | prop | obj obj |
+| fn | prop | obj obj |
+| fn | prop | obj obj |
+| fn | prop | obj obj |
++----+------+---------+
+| 123 abc world ...   |
++---------------------+
+#+END_SRC
+#+BEGIN_SRC ditaa :file assets/ui-portrait2.png
++---------------------+
+| (expr ... )         |
++---------------------+
+| prop |              |
+|      |              |
+|      |              |
++------+   Object     |
+|  fn  |              |
+|      |              |
+|      |              |
++---------------------+
+| obj obj obj obj obj |
+| obj obj obj obj obj |
++---------------------+
+| 123 abc world ...   |
++---------------------+
+#+END_SRC
+#+BEGIN_SRC ditaa :file assets/ui-landscape1.png
++---------------------------------+
+| (expr ... )                     |
++------+-------------------+------+
+| prop |                   | obj  |
+|      |                   | obj  |
++------+     Object        | obj  |
+|  fn  |                   |      |
+|      |                   |      |
++------+-------------------+------+
+| 123 abc world ...               |
++---------------------------------+
+#+END_SRC
