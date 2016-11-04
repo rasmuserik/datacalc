@@ -37,6 +37,15 @@
     [.8 .1 1 .9]
     [0 .9 1 1]]
    ])
+(defn hash-color-light [s]
+  (str "#"
+       (-> s
+           (hash)
+           (bit-and 0xffffff)
+           (bit-or 0x1b0b0b0)
+           (.toString 16)
+           (.slice 1)
+           )))
 (defn styling []
   (load-style!
    (let [total-width js/window.innerWidth
@@ -91,16 +100,22 @@
        }
       ".props"
       (into props
-       {:background "#fcc"})
+            {;:background "#000"
+             :outline "1px solid black"
+             })
       ".fns"
       (into fns
-            {:background "#cfc"})
+            {;:background "#000"
+             :outline "1px solid black"
+             })
       ".main"
       (into main
             {:background "#ccf"})
       ".objs"
       (into objs
-            {:background "#ffc"})
+            {:background "#ffc"
+             :outline "1px solid black"
+             })
       :.entry
       {:display :inline-block
        :white-space :nowrap
@@ -115,6 +130,25 @@
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
 (styling)
 
+(deftype Number [val]
+  Object
+  (add [_ y] (Number. (+ val (.-val y))))
+  (sub [_ y] (Number. (- val (.-val y))))
+  (mul [_ y] (Number. (* val (.-val y))))
+  (availableProps [_] {"inc" ["add" ["literal" 1]]
+                       "dec" ["sub" ["literal" 1]]})
+  (toJSON [_] #js ["value" val])
+  (toString [_] (str val)))
+(deftype String [val]
+  Object
+  (toJSON [_] #js ["value" val])
+  (toString [_] (str val)))
+
+(defn execute [expr]
+  (js/console.log 'execute expr))
+(defn begin-form [id]
+  (js/console.log 'begin-form id))
+
 (defn action-button [id f]
   [:img.icon
    {:src (str "assets/icons/noun_" id ".svg")
@@ -122,17 +156,6 @@
     }
    ]
   )
-(deftype Number [val]
-  Object
-  (add [_ y] (Number. (+ val (.-val y))))
-  (sub [_ y] (Number. (- val (.-val y))))
-  (mul [_ y] (Number. (* val (.-val y))))
-  (toJSON [_] #js ["value" val])
-  (toString [_] (str val)))
-(deftype String [val]
-  Object
-  (toJSON [_] #js ["value" val])
-  (toString [_] (str val)))
 (defn sexpr []
   [:div.sexpr
    "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"]
@@ -188,12 +211,43 @@
         (JSON.stringify (clj->js (get o :code ""))) [:br] (str (get o :val ""))])
      (db [:data] [])))))
 (defn fns [o]
-  [:div.fns (str (remove #{"constructor"}(js->clj (js/Object.getOwnPropertyNames (.-prototype (.-constructor o))))))]
+  (into [:div.fns]
+        (for [v
+              (sort (remove #{"constructor"}
+                       (js->clj (js/Object.getOwnPropertyNames
+                                 (.-prototype (.-constructor o))))))]
+          [:div.fn
+           {:on-click #(begin-form v)
+            :style
+            {:background-color (hash-color-light v)}
+            }
+           [:strong v] [:br]
+           [:em "..."]
+           ]
+          ))
    )
+(defn availableProps [o]
+  (sort
+   (if (aget o "availableProps")
+     (js->clj (.availableProps o))
+     (for [name (js->clj (js/Object.getOwnPropertyNames o))]
+       [name ["get" name]]
+       ))))
+
 (defn props [o]
-  [:div.props
-   (str (js->clj (js/Object.getOwnPropertyNames o)))
-   ])
+  (into [:div.props]
+        (for [[k v] (availableProps o)]
+          [:div.fn
+           {:on-click #(execute v)
+            :style
+            {:background-color (hash-color-light k)}
+            }
+           [:strong k] [:br]
+           [:em (str v)]
+           ]
+          ))
+   )
+
 (defn actions []
   [:div.actions
    #_[action-button 593402
