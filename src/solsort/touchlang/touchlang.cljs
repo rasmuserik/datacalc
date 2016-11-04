@@ -17,96 +17,89 @@
    [cljs.core.async :refer [>! <! chan put! take! timeout close! pipe]]))
 
 
+(def layouts
+  [[[0 .0 1 .1]
+    [0 .1 1 .5]
+    [0 .6 .25 1]
+    [.25 .6 .5 1]
+    [.5 .6 1 1]
+    [0 .5 1 .6]]
+   [[0 .0 1 .1]
+    [.25 .1 1 .7]
+    [0 .1 .25 .4]
+    [0 .4 .25 .7]
+    [0 .8 1 1]
+    [0 .7 1 .8]]
+   [[0 .0 1 .1]
+    [.2 .1 .8 .9]
+    [0 .1 .2 .5]
+    [0 .5 .2 .9]
+    [.8 .1 1 .9]
+    [0 .9 1 1]]
+   ])
 (defn styling []
   (load-style!
    (let [total-width js/window.innerWidth
          total-height js/window.innerHeight
-         action-count 7
-         action-size 40
-         action-margin (* 0.4 (- (/ total-width action-count) action-size))
-         action-top-padding 10
-         action-height (+ action-size action-top-padding)
          sexpr-height 36
-         h (- total-height action-height sexpr-height)
+         h total-height
          w total-width
          ratio 0.6
-         [main props fns objs]
+         [sexpr main props fns objs actions]
          (map
           (fn [[x0 y0 x1 y1]] {:display :inline-block
                                :position :absolute
                                :overflow :auto
                                :left (* w x0) :top (* h y0)
+                               :width (* w (- x1 x0))
+                               :height (* h (- y1 y0))
                                :right (- w (* w x1)) :bottom (- h (* h y1))})
-          (case (db [:ui :layout])
-            [[0 0 1 (- 1 ratio)]
-             [0 ratio .25 1]
-             [.25 ratio .5 1]
-             [.5 ratio 1 1]]))
+          (get layouts (mod (db [:ui :layout] 0) (count layouts))))
+         action-count 7
+         action-size (* 0.8 (min (:height actions) (/ (:width actions) action-count)))
+         action-hpad (- (/ (:width actions) action-count) action-size)
+         action-vpad (- (:height actions) action-size)
          entry-width 72 ; 70-140
          entry-height 36
          ]
      {"body"
-      {
-       :background :blue
-       :margin 0 :padding 0}
+      {:margin 0 :padding 0}
       ".sexpr"
-      {
-       :background "#ccf"
-       :display :inline-block
-       :position :fixed
-       :width "100%"
-       :top 0
-       :white-space :nowrap
-       ;:line-height sexpr-height
-       :overflow :auto
-       :padding-left 10
-       :padding-right 10
-       :height sexpr-height
-       :box-shadow "0px 1px 4px rgba(0,0,0,0.5)"
-       }
+      (into sexpr
+        {:background "#eef"
+        :overflow :auto
+        :padding-left 10
+        :padding-right 10
+        :box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+        })
       ".actions"
-      {
-       :background :white
-       :display :inline-block
-       :bottom 0
-       :padding-top action-top-padding
-       :margin 0
-       :left 0
-       :height (+ action-size action-top-padding)
-       :position :fixed
-       :text-align :center
-       :width "100%"
-       :box-shadow "0px -1px 4px rgba(0,0,0,0.5)"
-       }
+      (into actions
+        {:background :white
+        :text-align :center
+         :overflow :hidden
+        :box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+        })
       ".actions > img"
-      {
-       :width (+ action-size (* 2 action-margin))
-       :height action-size
-       :padding-right action-margin
-       :padding-left action-margin
+      {:width (+ action-hpad action-size)
+       :height (+ action-size action-vpad)
+       :padding-top (* .5 action-vpad)
+       :padding-bottom (* .5 action-vpad)
+       :padding-left (* .5 action-hpad)
+       :padding-right (* .5 action-hpad)
        :margin 0
        }
-      ".content-container"
-      {
-       :background "#cfc"
-       :display :inline-block
-       :position :fixed
-       :left 0
-       :right 0
-       :top sexpr-height
-       :bottom action-height}
       ".props"
       (into props
-       {:background :red})
+       {:background "#fcc"})
       ".fns"
       (into fns
-            {:background :green})
+            {:background "#cfc"})
       ".main"
       (into main
-            {:background :blue})
+            {:background "#ccf"})
       ".objs"
       (into objs
-            {:background :yellow})
+            {:background "#ffc"})
       :.entry
       {:display :inline-block
        :white-space :nowrap
@@ -133,12 +126,10 @@
   (mul [_ y] (Number. (* val (.-val y))))
   (toJSON [_] #js ["value" val])
   (toString [_] (str val)))
-
 (deftype String [val]
   Object
   (toJSON [_] #js ["value" val])
   (toString [_] (str val)))
-
 (defn sexpr []
   [:div.sexpr
    "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"]
@@ -206,7 +197,11 @@
       (fn []
         (db! [:ui :current] (count (db [:data] [])))
         (db! [:ui :input] :number))]
-   [action-button 605398 #(js/console.log "layouts")]
+   [action-button 605398
+    (fn []
+      (db! [:ui :layout] (inc (db [:ui :layout] 0)))
+      (js/setTimeout styling 0)
+       )]
    [action-button "47250_num"
     (fn []
       (db! [:ui :current] (count (db [:data] [])))
@@ -224,16 +219,13 @@
 (defn ui []
   (let [obj (db [:data (db [:ui :current] -1)] {})
         val (get obj :val #js{})]
-    (log 'here obj val)
    [:div
-    [:div.content-container
-     [main obj]
-     [props val]
-     [fns val]
-     [actions]
-     [objs]
-     ]
+    [main obj]
+    [props val]
+    [fns val]
+    [objs]
     [sexpr]
+    [actions]
     ])
   )
 (render
