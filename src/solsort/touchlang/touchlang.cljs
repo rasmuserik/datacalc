@@ -44,6 +44,19 @@
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
 (styling)
 
+(defn action-button [id f]
+  [:img.icon
+   {:src (str "assets/icons/noun_" id ".svg")
+    :on-click f
+    :width 60
+    :height :40
+    :style
+    {
+     :padding "0 10px 0 10px"
+     }
+    }
+   ]
+  )
 (deftype Number [val]
   Object
   (add [_ y] (Number. (+ val (.-val y))))
@@ -97,6 +110,17 @@
     :else [:div "obj"]))
 (defn command-bar []
   [:div
+   #_[action-button 593402
+    (fn []
+      (db! [:ui :current] (count (db [:data] [])))
+      (db! [:ui :input] :number))]
+   [action-button 605398 #(js/console.log "layouts")]
+   [action-button "47250_num" #(js/console.log "num")]
+   [action-button 47250 #(js/console.log "string")]
+   [action-button "209279_rotate" #(js/console.log "fn")]
+   [action-button 593402 #(js/console.log "world")]
+   [action-button 684642 #(js/console.log "delete")]
+   [action-button 619343 #(js/console.log "ok")]
    [:button
     {:on-click
      (fn []

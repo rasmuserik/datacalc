@@ -17,8 +17,6 @@ function demo$hello(a, b) {
 }
 #+END_SRC
 
-
-
 * UI
 ** Elements:
 
@@ -28,10 +26,11 @@ function demo$hello(a, b) {
 - props - special methods on objects, ie. direct access to properties on json-objects/arrays, special easy-access methods etc..
 - objs - history of all objects interacted with
 - actions - button bar for inteactions / changing modus
+  - world - monad with access to state-object, constructors, functions, macros
+  - toggle view
   - close - ends current method-call/function
   - delete - backspace one token
   - Make function - select result + parameters in objs to create a new function
-  - world - monad with access to state-object, constructors, functions, macros
 
 ** Screens
 #+BEGIN_SRC ditaa :file assets/ui-portrait1.png
