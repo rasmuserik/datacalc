@@ -20,6 +20,9 @@
   (load-style!
    (let [total-width js/window.innerWidth
          total-height js/window.innerHeight
+         action-size 40
+         action-count 7
+         action-margin (* 0.4 (- (/ total-width 7) 40))
          entry-width 72
          entry-height 36
          input-height (* 6 entry-height)
@@ -27,6 +30,19 @@
          stack-width (- total-width entry-width)]
      {"body"
       {:margin 0 :padding 0}
+      ".actions"
+      {:display :inline-block
+       :bottom 0
+       :position :fixed
+       :background :blue
+       }
+      ".actions > img"
+      {
+       :width (+ action-size (* action-margin 2))
+       :height action-size
+       :margin-right action-margin
+       :margin-left action-margin
+       }
       ".current"
       {:background "#eee"}
       "div"
@@ -108,8 +124,8 @@
      #_[:input
         {:type :submit}]]
     :else [:div "obj"]))
-(defn command-bar []
-  [:div
+(defn actions []
+  [:div.actions
    #_[action-button 593402
     (fn []
       (db! [:ui :current] (count (db [:data] [])))
@@ -173,7 +189,7 @@
     [object-view obj]
     [fn-list val]
     [prop-list val]
-    [command-bar]
+    [actions]
     [data-view]])
   )
 (render
