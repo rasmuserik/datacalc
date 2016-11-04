@@ -1,4 +1,4 @@
-(defproject solsort.rpn-data-calc/rpn-data-calc "0.0.1-SNAPSHOT"
+(defproject solsort.touchlang/touchlang "0.0.1-SNAPSHOT"
   :license "MIT"
 
   :dependencies
@@ -45,7 +45,7 @@
       :figwheel
       {:websocket-host :js-client-host}
       :compiler
-      {:main solsort.rpn-data-calc.rpn-data-calc
+      {:main solsort.touchlang.touchlang
        :asset-path "out"
        :output-to "resources/public/index.js"
        :output-dir "resources/public/out"
@@ -54,7 +54,7 @@
      :source-paths ["src" "util/src/"]
      :compiler
      {:output-to "index.js"
-      :main solsort.rpn-data-calc.rpn-data-calc
+      :main solsort.touchlang.touchlang
       :externs ["util/externs.js"]
       :optimizations :advanced
       :pretty-print false}}

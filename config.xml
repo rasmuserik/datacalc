@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="solsort.rpn-data-calc.rpn-data-calc" version="0.0.1-SNAPSHOT" 
+<widget id="solsort.touchlang.touchlang" version="0.0.1-SNAPSHOT" 
   xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <name>rpn-data-calc</name>
+    <name>touchlang</name>
     <date></date>
     <shortdescription></shortdescription>
     <description>

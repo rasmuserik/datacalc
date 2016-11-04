@@ -1,4 +1,4 @@
-# rpn-data-calc ![](https://rpn-data-calc.solsort.com/icon-small.png)
+# touchlang ![](https://touchlang.solsort.com/icon-small.png)
 
 Needs renaming as it is moving towards s-expressions, rather than straight RPN
 
