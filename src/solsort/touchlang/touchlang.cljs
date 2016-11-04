@@ -59,8 +59,9 @@
          action-size (* 0.8 (min (:height actions) (/ (:width actions) action-count)))
          action-hpad (- (/ (:width actions) action-count) action-size)
          action-vpad (- (:height actions) action-size)
-         entry-width 72 ; 70-140
-         entry-height 36
+         entries-per-line (max 1 (js/Math.floor (/ (:width objs) 80)))
+         entry-width (/ (:width objs) entries-per-line)
+         entry-height (* 0.5 entry-width)
          ]
      {"body"
       {:margin 0 :padding 0}
@@ -104,6 +105,8 @@
       {:display :inline-block
        :white-space :nowrap
        :overflow :hidden
+       :font-size (* entry-height 0.3)
+       :line-height (/ entry-height 3)
        :width entry-width
        :height entry-height
        :outline "1px solid black"}})
@@ -135,9 +138,9 @@
    "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"]
   )
 (defn main []
+  [:div.main
   (cond
     (= (db [:ui :input]) :string)
-    [:div.main
      [:form
       {:on-submit
        (fn [e]
@@ -154,7 +157,7 @@
         (fn [e]
           (db! [:ui :value] (String. (-> e (.-target) (.-value)))))}]
       [:input
-       {:type :submit}]]]
+       {:type :submit}]]
     (= (db [:ui :input]) :number)
     [:form
      {:on-submit
@@ -172,7 +175,7 @@
        :on-change (fn [e] (db! [:ui :value] (Number. (js/parseFloat (-> e (.-target) (.-value))))))}]
      #_[:input
         {:type :submit}]]
-    :else [:div "obj"]))
+    :else [:div "obj"])])
 (defn objs []
   (into
    [:div.objs]
