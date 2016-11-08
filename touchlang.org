@@ -1,14 +1,24 @@
+* Roadmap
+
+- [ ] conversion between textual-code and data
+- [ ] sample code / test data
+  - [ ] sample programs
+  - [ ] sample library functionality (ie. numbers, strings, turtle, lists, ...)
+- [ ] code evaluator
+- [ ] simple ui for interacting with the code, append/repl
+- [ ] code for compilation
+
 * Definition of language as data structure
 
 Code is a data flow graph. Special "macros" for loops, function definition/export etc.
 
 - data structure
   - codesheet
-    - evt. file name
+    - ns
     - constant list - json constants 
     - node list
   - node
-    - ~fn~ name of method/function to be called
+    - ~fn~ ns/name of method/function to be called
     - ~args~ list of object and parameters as integer
       - *1, 2, ...*: reference into parent list of nodes
       - *0*: world/macros
@@ -22,31 +32,32 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
     - sort into independent components, and some kind of topological sort determining order of nodes
   - serialised as JSON
   - mapping to/from canonical text source code
-- world/macros
-  - `.start` (args..) 
-    - `.end` (result) -> actual runnable block/function
-    - `.call` (params..) call/recur block -> end
-    - `.execute` call with default args
-  - if(cond, val1, val2) -> val1|val2
+- Special (non-pure) functions
+  - ~start~ (args..)
+    - *~.end~* (result) -> actual runnable block/function
+    - ~.call~ (params..) call/recur block -> end
+  - boolean: *~.thenElse~* (cond, val1, val2) -> val1|val2
+  - ~property~ (ns/typename, ns/name, [class])
+  - ~implementation~ (ns/typename, {ns/fname: fn, ns/fname: fn, ns/fname: fn}, [class])
+  - ~export~ (ns/endpointname, val)
+  - ~import~
 
 #+BEGIN_EXAMPLE
-  $1 = 5
-
-  f = macros.while(test, feedback-value, beginning)
+  core.import(while end world then call push ++ <)
+  blah/ooh.import(foo)
 
   arr = [];
-  for(i = 0; i < 100; ++i) {
-     arr = arr.push(i);
-  }
+  for(i = 0; i < 100; ++i) {arr = arr.push(i);}
 
   arr = []
   i = 0
-  block = world.start(arr, i)
-  result = block.end(
-    i.<(100).thenelse(
-      block.call(arr.push(i), i.++()),
-      arr))
-  .run()
+  block = *.start(arr i)
+  result = block.end(i.<(100).then(block.call(arr.push(i) i.++()) arr)).call(arr i)
+
+  arr = []
+  i = 0
+  block = (start world arr i)
+  result = (call (end block (then (< i 100) (call block (push arr i) (++ i)) arr)) arr i)
 
   block = world.start(elem)
   block.end(elem.*elem)
