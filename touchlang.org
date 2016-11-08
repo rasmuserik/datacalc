@@ -1,3 +1,65 @@
+* Definition of language as data structure
+
+Code is a data flow graph. Special "macros" for loops, function definition/export etc.
+
+- data structure
+  - codesheet
+    - evt. file name
+    - constant list - json constants 
+    - node list
+  - node
+    - ~fn~ name of method/function to be called
+    - ~args~ list of object and parameters as integer
+      - *1, 2, ...*: reference into parent list of nodes
+      - *0*: world/macros
+      - *-1, -2, ...*: reference into constant table
+    - ~meta~ JSON object with optional meta data
+      - ~name~
+      - ~comment~
+- representations
+  - canonical representation of graph
+    - constants sorted by value, and deduplicated
+    - sort into independent components, and some kind of topological sort determining order of nodes
+  - serialised as JSON
+  - mapping to/from canonical text source code
+- world/macros
+  - `.start` (args..) 
+    - `.end` (result) -> actual runnable block/function
+    - `.call` (params..) call/recur block -> end
+    - `.execute` call with default args
+  - if(cond, val1, val2) -> val1|val2
+
+#+BEGIN_EXAMPLE
+  $1 = 5
+
+  f = macros.while(test, feedback-value, beginning)
+
+  arr = [];
+  for(i = 0; i < 100; ++i) {
+     arr = arr.push(i);
+  }
+
+  arr = []
+  i = 0
+  block = world.start(arr, i)
+  result = block.end(
+    i.<(100).thenelse(
+      block.call(arr.push(i), i.++()),
+      arr))
+  .run()
+
+  block = world.start(elem)
+  block.end(elem.*elem)
+  arr.forEach(block)
+
+  elem = arr.first()
+  arr.foreach(world.start(elem).end(elem.*elem))
+
+  block = world.start(f, arr)
+  block.end(arr.isEmpty().thenelse([], block.call(f, arr.tail()).push(f.call(arr.head()))))
+#+END_EXAMPLE
+
+
 * Data structure
 ** Language as data
 Code as data instead of text.
