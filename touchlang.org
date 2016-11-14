@@ -12,35 +12,31 @@
 
 Code is a data flow graph. Special "macros" for loops, function definition/export etc.
 
-- data structure
-  - codesheet
-    - ns
-    - constant list - json constants 
-    - node list
-  - node
-    - ~fn~ ns/name of method/function to be called
-    - ~args~ list of object and parameters as integer
-      - *1, 2, ...*: reference into parent list of nodes
-      - *0*: world/macros
-      - *-1, -2, ...*: reference into constant table
-    - ~meta~ JSON object with optional meta data
-      - ~name~
-      - ~comment~
-- representations
-  - canonical representation of graph
-    - constants sorted by value, and deduplicated
-    - sort into independent components, and some kind of topological sort determining order of nodes
-  - serialised as JSON
-  - mapping to/from canonical text source code
-- Special (non-pure) functions
-  - ~start~ (args..)
-    - *~.end~* (result) -> actual runnable block/function
-    - ~.call~ (params..) call/recur block -> end
-  - boolean: *~.thenElse~* (cond, val1, val2) -> val1|val2
-  - ~property~ (ns/typename, ns/name, [class])
-  - ~implementation~ (ns/typename, {ns/fname: fn, ns/fname: fn, ns/fname: fn}, [class])
-  - ~export~ (ns/endpointname, val)
-  - ~import~
+ - node
+   - fn
+     - ~id~ identifier for the node
+     - ~fn~ ns/name of method/function to be called
+     - ~args~ - list of ids for nodes
+     - ~meta~ (optional) JSON object with meta data
+   - data
+     - ~id~
+     - ~data~
+     - ~meta~
+ - representations
+   - canonical representation of graph
+     - constants sorted by value, and deduplicated
+     - sort into independent components, and some kind of topological sort determining order of nodes
+   - serialised as JSON
+   - mapping to/from canonical text source code
+ - Special (non-pure) functions
+   - ~start~ (args..)
+     - *~.end~* (result) -> actual runnable block/function
+     - ~.call~ (params..) call/recur block -> end
+   - boolean: *~.thenElse~* (cond, val1, val2) -> val1|val2
+   - ~property~ (ns/typename, ns/name, [class])
+   - ~implementation~ (ns/typename, {ns/fname: fn, ns/fname: fn, ns/fname: fn}, [class])
+   - ~export~ (ns/endpointname, val)
+   - ~import~
 
 #+BEGIN_EXAMPLE
   core.import(while end world then call push ++ <)

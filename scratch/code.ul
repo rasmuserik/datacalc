@@ -1,0 +1,4 @@
+hello-arg "name"
+hello (new-fn (concat (array "Hello " hello-arg "!\
+")) hello-arg)
+main (print (call hello "world"))
