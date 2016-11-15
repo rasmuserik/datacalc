@@ -1,4 +1,5 @@
-var s = require('fs').readFileSync("code.ul", "utf-8").split('');
+var fs = require('fs');
+var s = fs.readFileSync("code.ul", "utf-8").split('');
 
 // NB: written in a style easily translateable into touchlang, 
 // not nice JS-style, and will overflow stack on large data
@@ -136,6 +137,8 @@ function parse(name, expr, i, acc) {
       }
     }
     return cons(i, cons({id: name, fn: fn, args: reverse(args)}, acc));
+  } else if(typeof expr === "string") {
+    return cons(i+1, cons({id: name, data: expr.slice(1, -1)}, acc));
   } else {
     return cons(i+1, cons({id: name, data: expr}, acc));
   }
@@ -155,8 +158,13 @@ function parsePairs(list, i, acc) {
 }
 s =  List.fromArray(s);
 tokens = tokenize(s, null)
-console.log(JSON.stringify(tokens));
 tree = makeTree(tokens, null, null);
-console.log(JSON.stringify(tree));
-console.log(JSON.stringify(parsePairs(tree, 0, null)));
+graph = parsePairs(tree, 0, null);
+//console.log(JSON.stringify(tokens));
+//console.log(JSON.stringify(tree));
+//console.log(JSON.stringify(graph));
     
+fs.writeFileSync("code.json", 
+    "[\n"+ graph.toArray()
+    /*.sort((a,b) => (a.id<b.id?-1:1))*/.map(JSON.stringify).join(",\n") + "]\n"
+    );

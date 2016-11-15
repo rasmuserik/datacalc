@@ -16,6 +16,8 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
    - fn
      - ~id~ identifier for the node
      - ~fn~ ns/name of method/function to be called
+       - "id" is name of identifier which maps to function
+       - Later: ".method" method dispatch
      - ~args~ - list of ids for nodes
      - ~meta~ (optional) JSON object with meta data
    - data
@@ -28,15 +30,16 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
      - sort into independent components, and some kind of topological sort determining order of nodes
    - serialised as JSON
    - mapping to/from canonical text source code
- - Special (non-pure) functions
-   - ~start~ (args..)
-     - *~.end~* (result) -> actual runnable block/function
-     - ~.call~ (params..) call/recur block -> end
-   - boolean: *~.thenElse~* (cond, val1, val2) -> val1|val2
-   - ~property~ (ns/typename, ns/name, [class])
-   - ~implementation~ (ns/typename, {ns/fname: fn, ns/fname: fn, ns/fname: fn}, [class])
-   - ~export~ (ns/endpointname, val)
-   - ~import~
+ - Special functions
+   - ~@~ (args...) -> block
+   - ~recur~ (block params..) loop witin block
+   - ~fn~ (block result) -> callable function
+   - ~run~ (block result) execute loop
+   - ~if~ (boolean val1 val2)
+   - ~js~ (arg-count string-body)
+ - programs 
+   - `ul2json.js` translate lisp-like syntax into json-graph
+   - `eval.js` prints value of node with name as first parameter
 
 #+BEGIN_EXAMPLE
   core.import(while end world then call push ++ <)

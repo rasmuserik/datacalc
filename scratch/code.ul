@@ -1,5 +1,8 @@
++ (js 2 "console.log('here'); return $0 + $1;")
 _ (+ 1 3)
 hello-arg "name"
 hello (new-fn (concat (array "Hello " hello-arg "!\
 ")) hello-arg)
-main (print (call hello "world"))
+main-prev (print (call hello "world"))
+main1 (if 0 123 321)
+main (+ 2 3)
