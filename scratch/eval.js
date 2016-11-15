@@ -8,15 +8,13 @@ function eval(id) {
   switch(fn) {
     case undefined:
       return node.data
-    case "@":
+    case "loop":
       throw fn + ' not implemented';
-    break; case "recur":
+    case "fn":
       throw fn + ' not implemented';
-    break; case "run":
+    case "recur":
       throw fn + ' not implemented';
-    break; case "fn":
-      throw fn + ' not implemented';
-    break; case "if":
+    case "if":
       var p = eval(node.args[0]);
       if(p) {
         return eval(node.args[1]);

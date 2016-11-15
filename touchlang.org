@@ -1,5 +1,7 @@
 * Roadmap
 
+NB: spineless tagless g-machine
+
 - [ ] conversion between textual-code and data
 - [ ] sample code / test data
   - [ ] sample programs
@@ -31,10 +33,9 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
    - serialised as JSON
    - mapping to/from canonical text source code
  - Special functions
-   - ~@~ (args...) -> block
-   - ~recur~ (block params..) loop witin block
-   - ~fn~ (block result) -> callable function
-   - ~run~ (block result) execute loop
+   - ~fn~ (args result) -> callable function. 
+   - ~loop~ (args result)
+   - ~recur~ (args..) loop witin block
    - ~if~ (boolean val1 val2)
    - ~js~ (arg-count string-body)
  - programs 
