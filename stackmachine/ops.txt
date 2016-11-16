@@ -1,0 +1,13 @@
+#QUIT
+return 0;
+#HELLO
+printf("Hello\n");
+#PUSH_INT
+*--sp = *ip++;
+#LOG_INT
+printf("LOG_INT %d\n", *sp);
+#POP
+sp++;
+#ADD
+++sp;
+*sp = sp[-1] + sp[0];
