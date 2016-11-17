@@ -4,11 +4,27 @@ return 0;
 printf("Hello\n");
 #PUSH_INT
 i = *ip++;
-*--sp = int_to_word(i);
+*--stack = int_to_word(i);
 #LOG_INT
-printf("LOG_INT %d\n", word_to_int(*sp));
+printf("LOG_INT %d\n", word_to_int(*stack));
 #POP
-sp++;
+stack++;
+#DUP
+stack--;
+stack[0] = stack[1];
 #ADD
-++sp;
-*sp = int_to_word(word_to_int(sp[-1]) + word_to_int(sp[0]));
+++stack;
+*stack= int_to_word(word_to_int(stack[-1]) + word_to_int(stack[0]));
+#PUSH_N
+i = *ip++;
+++stack;
+stack[i] = stack[-1];
+#TUPLE
+i = *ip++;
+u_malloc(1, i, 0);
+w = word_to_heap_index(*stack);
+for(j = 0; j < i; ++j) {
+   heap[w + 3 + j] = stack[j + 1];
+}
+stack[i] = stack[0];
+stack += i;

@@ -1,3 +1,5 @@
 node genInterpreter.js &&
-  cc *.c &&
-  ./a.out
+  cc -D __ULANG_MAIN__ *.c &&
+  strip a.out &&
+  ./a.out &&
+  ls -l a.out
