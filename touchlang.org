@@ -14,33 +14,40 @@ NB: spineless tagless g-machine
 
 Code is a data flow graph. Special "macros" for loops, function definition/export etc.
 
- - node
-   - fn
-     - ~id~ identifier for the node
-     - ~fn~ ns/name of method/function to be called
-       - "id" is name of identifier which maps to function
-       - Later: ".method" method dispatch
-     - ~args~ - list of ids for nodes
-     - ~meta~ (optional) JSON object with meta data
-   - data
-     - ~id~
-     - ~data~
-     - ~meta~
- - representations
-   - canonical representation of graph
-     - constants sorted by value, and deduplicated
-     - sort into independent components, and some kind of topological sort determining order of nodes
-   - serialised as JSON
-   - mapping to/from canonical text source code
- - Special functions
-   - ~fn~ (args result) -> callable function. 
-   - ~loop~ (args result)
-   - ~recur~ (args..) loop witin block
-   - ~if~ (boolean val1 val2)
-   - ~js~ (arg-count string-body)
- - programs 
-   - `ul2json.js` translate lisp-like syntax into json-graph
-   - `eval.js` prints value of node with name as first parameter
+- node
+  - fn
+    - ~id~ identifier for the node
+    - ~fn~ ns/name of method/function to be called
+      - "id" is name of identifier which maps to function
+      - Later: ".method" method dispatch
+    - ~args~ - list of ids for nodes
+    - ~meta~ (optional) JSON object with meta data
+  - data
+    - ~id~
+    - ~data~
+    - ~meta~
+- representations
+  - canonical representation of graph
+    - constants sorted by value, and deduplicated
+    - sort into independent components, and some kind of topological sort determining order of nodes
+  - serialised as JSON
+  - mapping to/from canonical text source code
+- Special functions
+  - ~fn~ (args result) -> callable function. 
+  - ~loop~ (args result)
+  - ~recur~ (args..) loop witin block
+  - ~if~ (boolean val1 val2)
+  - ~js~ (arg-count string-body)
+- programs 
+  - `ul2json.js` translate lisp-like syntax into json-graph
+  - `eval.js` prints value of node with name as first parameter
+ 
+
+- Stack machine
+  - code
+    - continuation passing style stack machine
+    - all (mutually recursive) code in module, save in same generation in heap, to allow garbage collection despite cyclic references
+
 
 #+BEGIN_EXAMPLE
   core.import(while end world then call push ++ <)
