@@ -6,16 +6,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 #include "interpreter.h"
 #define sp u_stack
 
 word_t u_run(uint8_t *ip) {
   word_t *h = u_heap;
+  int i, j;
   for(;;) {
-    if(u_heap + heap_top >= sp) {
-      printf("Error, stack limit reached\n");
-      exit(-1);
-    }
+    assert(u_heap + u_heaptop < sp);
     switch(*ip++) {
       case QUIT:
         return 0;
@@ -24,17 +23,18 @@ word_t u_run(uint8_t *ip) {
         printf("Hello\n");
       break;
       case PUSH_INT:
-        *--sp = *ip++;
+        i = *ip++;
+        *--sp = int_to_word(i);
       break;
       case LOG_INT:
-        printf("LOG_INT %d\n", *sp);
+        printf("LOG_INT %d\n", word_to_int(*sp));
       break;
       case POP:
         sp++;
       break;
       case ADD:
         ++sp;
-        *sp = sp[-1] + sp[0];
+        *sp = int_to_word(word_to_int(sp[-1]) + word_to_int(sp[0]));
       break;
     }
   }

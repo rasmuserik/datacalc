@@ -3,11 +3,12 @@ return 0;
 #HELLO
 printf("Hello\n");
 #PUSH_INT
-*--sp = *ip++;
+i = *ip++;
+*--sp = int_to_word(i);
 #LOG_INT
-printf("LOG_INT %d\n", *sp);
+printf("LOG_INT %d\n", word_to_int(*sp));
 #POP
 sp++;
 #ADD
 ++sp;
-*sp = sp[-1] + sp[0];
+*sp = int_to_word(word_to_int(sp[-1]) + word_to_int(sp[0]));

@@ -35,16 +35,15 @@ var cFile = `/*
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <assert.h>
 #include "interpreter.h"
 #define sp u_stack
 
 word_t u_run(uint8_t *ip) {
   word_t *h = u_heap;
+  int i, j;
   for(;;) {
-    if(u_heap + heap_top >= sp) {
-      printf("Error, stack limit reached\\n");
-      exit(-1);
-    }
+    assert(u_heap + u_heaptop < sp);
     switch(*ip++) {`;
 
 for(var i = 0; i < ops.length; ++i) {
