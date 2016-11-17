@@ -119,17 +119,59 @@ void u_address_calculation(size_t idx) {//{{{2
     if(heap[idx]) {
       heap[idx] = adr;
       adr += size;
-      idx += size;
-    } else {
-      idx += size;
     }
+    idx += size;
   }
 }
+void u_update_address(word_t *word) {//{{{2
+  word_t w = *word;
+  if(word_is_ptr(w)) {
+    *word = heap_index_to_word(heap[word_to_heap_index(w)]);
+  }
+}
+void u_address_update(size_t idx) {  //{{{2
+  while(idx < heaptop) {
+    size_t size = chunk_size(idx);
+    if(heap[idx]) {
+      size_t ptrs = chunk_ptr_count(idx);
+      for(int i = 0; i < ptrs; ++i) {
+        u_update_address(heap + 3 + idx + i);
+      }
+    }
+    idx += size;
+  }
+  for(word_t *p = stack; p < stackend; ++p) {
+    u_update_address(p);
+  }
+}
+void u_compact(size_t idx) { //{{{2
+  size_t end = 0;
+  while(idx < heaptop) {
+    size_t size = chunk_size(idx);
+    size_t dst = heap[idx];
+    if(dst && dst != idx) {
+      for(int i = 0; i < size; ++i) {
+        heap[dst + i] = heap[idx + i];
+      }
+      end = dst + size;
+    }
+    idx += size;
+  }
+  heaptop = end;
+}
+// NB/TODO first object in heap has some issues around GC
 void u_gc(size_t generation) {//{{{2
   u_mark(generation);
   u_address_calculation(generation);
+  u_address_update(generation);
+  u_compact(generation);
 }
 //{{{1 memdump
+//#define NO_MEMDUMP
+#ifdef NO_MEMDUMP
+void memdump(FILE *f) {
+}
+#else
 void print_word(FILE *f, word_t w) {
   if(word_is_ptr(w)) {
     fprintf(f, " X%d", (int) word_to_heap_index(w));
@@ -183,6 +225,7 @@ void memdump(FILE *f) {
   }
   fprintf(f, "\n");
 }
+#endif /* NO_MEMDUMP */
 //{{{1 Main
 #ifdef __ULANG_MAIN__
 int main() {
