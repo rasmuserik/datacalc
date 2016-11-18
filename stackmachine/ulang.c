@@ -1,15 +1,26 @@
-//{{{1 includes
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "ulang.h"
+#include "ops.h"
 
 //{{{1 defines
-#define ATOM_TYPE 0
-#define TUPLE_TYPE 1
-#define STRING_TYPE 2
+#define STRING_TYPE 0
+#define ATOM_TYPE 1
+#define ARRAY_TYPE 2
+#define HAMT_TYPE 3
+#define true 1
+#define false 0
+typedef uint16_t word_t;
+typedef size_t chunk_t;
+word_t u_run(uint8_t *code);
+
 #define BYTES_PER_WORD 2
+#define BITS_PER_WORD 16
+#define LOG_BITS_PER_WORD 4
+
+
+void push_atom(char *);
 //{{{1 global variables
 word_t *stack = 0;
 word_t *heap = 0;
@@ -51,12 +62,15 @@ void u_malloc(unsigned int typetag, size_t pointers, size_t bytes) {//{{{2
 }
 
 void *u_init(size_t size) {//{{{2
-  void *p = realloc(heap, size);
+  void *p = malloc(size);
   if(p) {
     heap = (word_t *) p;
     u_wordcount = size / BYTES_PER_WORD;
     stack = ((word_t *) p) + u_wordcount;
     stackend = (word_t *) p + size;
+    push_atom("false");
+    push_atom("true");
+    push_atom("null");
   }
   return p;
 }
@@ -74,10 +88,10 @@ int word_to_int(word_t w) {//{{{2
   assert(word_is_short_int(w));
   return (int) w / 2;
 };
-word_t heap_index_to_word(size_t i) {//{{{2
+word_t chunk_to_word(size_t i) {//{{{2
   return i * 2;
 }
-size_t word_to_heap_index(word_t w) {//{{{2
+size_t word_to_chunk(word_t w) {//{{{2
   assert(word_is_ptr(w));
   return (size_t) w / 2;
 }
@@ -97,7 +111,7 @@ size_t chunk_size(size_t idx) {//{{{2
 //{{{1 Garbage Collector
 void visit(size_t *unvisited_top, word_t *p) {//{{{2
     if(word_is_ptr(*p)) {
-      size_t idx = word_to_heap_index(*p);
+      size_t idx = word_to_chunk(*p);
       if(0 == heap[idx]) {
         heap[idx] = *unvisited_top;
         *unvisited_top = idx;
@@ -132,7 +146,7 @@ void u_address_calculation(size_t idx) {//{{{2
 void u_update_address(word_t *word) {//{{{2
   word_t w = *word;
   if(word_is_ptr(w)) {
-    *word = heap_index_to_word(heap[word_to_heap_index(w)]);
+    *word = chunk_to_word(heap[word_to_chunk(w)]);
   }
 }
 void u_address_update(size_t idx) {  //{{{2
@@ -180,7 +194,7 @@ void memdump(FILE *f) {
 #else
 void print_word(FILE *f, word_t w) {
   if(word_is_ptr(w)) {
-    fprintf(f, " X%d", (int) word_to_heap_index(w));
+    fprintf(f, " X%d", (int) word_to_chunk(w));
   } else {
     fprintf(f, " %d", word_to_int(w));
   }
@@ -188,7 +202,7 @@ void print_word(FILE *f, word_t w) {
 
 void print_c(FILE *f, uint8_t c) {
   if(c < 32 || c >= '{') {
-    fprintf(f, "{%x}", c);
+    fprintf(f, "{%d}", c);
   } else {
     fprintf(f, "%c", c);
   }
@@ -243,12 +257,16 @@ void push_short_int(int i) {
 void push_string(char *s) {
   int i = 0;
   char c;
-  while(c = s[i]) {
+  while((c = s[i])) {
     push_short_int(c);
     ++i;
   }
   push_int(i);
   u_run((uint8_t[]){u_NEW_STRING, u_QUIT});
+}
+void push_atom(char *s) {
+  push_string(s);
+  heap[word_to_chunk(*stack) + 2] |= 512;
 }
 //{{{1 u_eval
 int char_in_str(char c, char* p) {
@@ -266,7 +284,6 @@ int char_in_str(char c, char* p) {
 char *numeric = "-1234567890";
 char *whitespace = " \t\n";
 void u_eval(char *p) {
-  int pos = 0;
   for(;;) {
     char c = *p++;
     if(!c) return;
@@ -278,7 +295,7 @@ void u_eval(char *p) {
       int negative = 0;
       int result = 0;
       if(c == '-') {
-        int negative = 1;
+        negative = 1;
         c = *p++;
       }
       do {
@@ -311,12 +328,182 @@ void u_eval(char *p) {
     }
   }
 }
+//{{{1 EQUALS
+int deep_equal(word_t w1, word_t w2) {
+  if(w1 == w2) {
+    return true;
+  }
+  if(word_is_short_int(w1) || word_is_short_int(w2)) {
+    return false;
+  }
+  word_t *p1 = heap + word_to_chunk(w1);
+  word_t *p2 = heap + word_to_chunk(w2);
+  if(p1[1] != p2[1] || p1[2] != p2[2]) {
+    return false;
+  }
+  size_t offset = 2 + (p1[2] & 511);
+  uint8_t *cp1 = (uint8_t *) p1 + offset;
+  uint8_t *cp2 = (uint8_t *) p2 + offset;
+  size_t bytes = p1[1];
+  for(int i = 0; i < bytes; ++i) {
+    if(cp1[i] != cp2[i]) {
+      return false;
+    }
+  }
+  for(int i = 2; i < offset; ++i) {
+    // TODO make non-recursive to preserve stack
+    if(!deep_equal(p1[i], p2[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+//{{{1 HAMT
+void empty_hamt() {//{{{2
+  u_malloc(HAMT_TYPE, 0, 2 * BYTES_PER_WORD);
+  word_t *chunk = heap + word_to_chunk(*stack);
+  chunk[4] = chunk[5] = 0;
+}
+uint32_t word_hash(word_t w) { //{{{2
+  if(word_is_short_int(w)) {
+    return w / 2;
+  }
+  chunk_t chunk = word_to_chunk(w);
+  size_t offset = chunk_ptr_count(chunk);
+  size_t bytes = chunk_byte_count(chunk);
+  // FNV-1a hash of content
+  uint32_t hash = 2166136261;
+  uint8_t *cp = (uint8_t *)(heap + chunk + offset);
+  for(int i = 0; i < bytes; ++i) {
+    hash = (hash ^ cp[i]) * 16777619;
+  }
+  return hash;
+}
+//{{{2 define HAMT_UPDATE_TYPES
+#define HAMT_ADD_VALUE 0
+#define HAMT_CHANGE_VALUE 1
+#define HAMT_VALUE_TO_HAMT 2
+#define HAMT_HAMT_TO_VALUE 3
+#define HAMT_ADD_HAMT 4
+#define HAMT_CHANGE_HAMT 5
+#define HAMT_REMOVE_HAMT 6
+word_t update_hamt(int type, chunk_t src, int pos, int bit, word_t w1, word_t w2) { //{{{2
+  // this should be more like
+  // src: 1 2 a  d   b 2 2  1 1
+  //
+  // for(i = 0; i < dst_len; ++i) {
+  //   dstp[i] = i < a 
+  //             ? srcp[i]
+  //             : (
+  //             i < dst_len - 2 * b
+  //             ? srcp[i + d]
+  //             : srcp[i - dst_len + src_len]
+  //             );
+  // }
+  // if(pos1 < 1000) {
+  //   dstp[pos1 < 0 ? dst_len - i : i] = w1;
+  // }
+  // if(pos2 < 1000) {
+  //   dstp[pos2 < 0 ? dst_len - i : i] = w2;
+  // }
+  int src_len= chunk_ptr_count(src);
+  switch(type) {
+    case HAMT_ADD_VALUE:
+      {
+        int dst_len = src_len + 2;
+        u_malloc(HAMT_TYPE, dst_len, 2 * BYTES_PER_WORD);
+        chunk_t dst = word_to_chunk(*stack);
+        for(int i = 0; i < dst_len - pos; ++i) {
+          heap[dst + 3 + i] = heap[src + 3 + i];
+        }
+        for(int i = 0; i <= pos * 2; ++i) {
+          heap[dst + 3 + dst_len - i] = heap[src + 3 + src_len - i];
+        }
+        heap[dst + 3 + dst_len - pos * 2 - 2] = w1;
+        heap[dst + 3 + dst_len - pos * 2 - 1] = w2;
+        heap[dst + 3 + dst_len + 0] = heap[src + 3 + src_len + 0];
+        heap[dst + 3 + dst_len + 1] = heap[src + 3 + src_len + 1] | bit;
+        return chunk_to_word(dst);
+      }
+    case HAMT_CHANGE_VALUE:
+      {
+        int dst_len = src_len;
+        u_malloc(HAMT_TYPE, dst_len, 2 * BYTES_PER_WORD);
+        chunk_t dst = word_to_chunk(*stack);
+        for(int i = 0; i < dst_len +2; ++i) {
+          heap[dst + 3 + i] = heap[src + 3 + i];
+        }
+        heap[dst + 3 + dst_len - pos * 2 - 1] = w1;
+        return chunk_to_word(dst);
+      }
+    break;
+  }
+  return 0;
+}
+word_t _hamt_insert(uint32_t hash, word_t key, word_t val, chunk_t hamt, int depth) { //{{{2
+
+  uint32_t bit = 1 << ((hash >> depth) & (BITS_PER_WORD - 1));
+  word_t *masks = heap + hamt + 3 + chunk_ptr_count(hamt);
+  if(bit & masks[0]) { // sub-hamt-exists
+    printf("a %d %d\n", bit, masks[0]);
+    assert(0);
+  } else if(bit & masks[1]) { // value exists
+    int pos = __builtin_popcount(masks[1] & (bit - 1));
+    if(deep_equal(heap[hamt + 3 + chunk_ptr_count(hamt) - pos * 2 - 2], key)) {
+      return update_hamt(HAMT_CHANGE_VALUE, hamt, pos, bit, val, 0);
+    }
+    assert(0);
+  } else {
+    int pos = __builtin_popcount(masks[1] & (bit - 1));
+    return update_hamt(HAMT_ADD_VALUE, hamt, pos, bit, key, val);
+  }
+
+  memdump(stdout);
+
+  return 0;
+}
+void hamt_insert() {  //{{{2
+  // key val hamt -> hamt
+  word_t key = stack[0];
+  word_t val = stack[1];
+  chunk_t hamt = word_to_chunk(stack[2]);
+  word_t *p = stack+2;
+  *p = _hamt_insert(word_hash(key), key, val, hamt, 0);
+  //*p = update_hamt(HAMT_ADD_VALUE, hamt, 0, 1, key, val);
+  stack = p;
+  memdump(stdout);
+}
 //{{{1 Main
 #ifdef __ULANG_MAIN__
 int main() {
+  u_init(200);
+  empty_hamt();
+  /*
+  push_string("a");
+  push_int(0);
+  hamt_insert();
+  */
+  push_string("b");
+  push_int(1);
+  hamt_insert();
+  memdump(stdout);
+  u_gc(0);
+  memdump(stdout);
+  u_gc(0);
+  /*
+  push_string("c");
+  push_int(15);
+  hamt_insert();
+  u_gc(0);
+  push_string("d");
+  push_int(1);
+  hamt_insert();
+  u_gc(0);
+  */
+  memdump(stdout);
+  /*
   printf("word_t* heap stack;\n");
   printf("size_t* heap_top, u_wordcount;\n\n");
-  u_init(200);
   u_malloc(1,0,10);
   u_malloc(2,1,0);
   u_malloc(3,0,1);
@@ -333,6 +520,7 @@ int main() {
   memdump(stdout);
 
   printf("stop\n");
+  */
   return 0;
 }
 #endif //__ULANG_MAIN__

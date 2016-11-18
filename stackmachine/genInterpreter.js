@@ -30,10 +30,6 @@ var cFile = `/*
  * DO NOT EDIT
  */
 word_t u_run(uint8_t *ip) {
-  word_t *h = heap;
-  int i, j;
-  word_t w, v;
-  char *cp;
   for(;;) {
     ensure_stack_space();
     switch(*ip++) {`;
@@ -45,7 +41,9 @@ for(var i = 0; i < ops.length; ++i) {
   opNames.push(`"${op.name}",`);
   cFile += `
       case u_${op.name}:
+      {
 ${op.code}
+      }
       break;`;
 }
 
