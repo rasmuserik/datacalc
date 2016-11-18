@@ -1,5 +1,15 @@
 #QUIT
 return 0;
+#NEW_STRING
+i = word_to_int(*stack++);
+u_malloc(STRING_TYPE, 0, i);
+cp = (char *) (heap + word_to_heap_index(*stack) + 3);
+printf("NEW_STRING %d %d\n", i, *cp);
+for(j = 0; j < i; ++j) {
+  cp[j] = (char) word_to_int(stack[i - j]);
+}
+stack[i] = stack[0];
+stack += i;
 #HELLO
 printf("Hello\n");
 #PUSH_INT

@@ -6,6 +6,9 @@
 #include "ulang.h"
 
 //{{{1 defines
+#define ATOM_TYPE 0
+#define TUPLE_TYPE 1
+#define STRING_TYPE 2
 #define BYTES_PER_WORD 2
 //{{{1 global variables
 word_t *stack = 0;
@@ -14,6 +17,9 @@ word_t *stackend= 0;
 size_t heaptop = 0;
 size_t u_wordcount= 0;
 //{{{1 Memory allocation
+void ensure_stack_space() {
+    assert(heap + heaptop < stack - 8);
+}
 void u_malloc(unsigned int typetag, size_t pointers, size_t bytes) {//{{{2
   word_t *p = heap + heaptop;
   size_t size = bytes + 2*pointers;
@@ -226,6 +232,85 @@ void memdump(FILE *f) {
   fprintf(f, "\n");
 }
 #endif /* NO_MEMDUMP */
+//{{{1 Push to stack
+void push_int(int i) {
+  *--stack = int_to_word(i);
+}
+void push_short_int(int i) {
+  *--stack = (word_t) i * 2 + 1;
+  ensure_stack_space();
+}
+void push_string(char *s) {
+  int i = 0;
+  char c;
+  while(c = s[i]) {
+    push_short_int(c);
+    ++i;
+  }
+  push_int(i);
+  u_run((uint8_t[]){u_NEW_STRING, u_QUIT});
+}
+//{{{1 u_eval
+int char_in_str(char c, char* p) {
+  for(;;) {
+    char c2 = *p;
+    if(c2 == 0) {
+      return 0;
+    }
+    if(c == c2) {
+      return 1;
+    }
+    ++p;
+  }
+}
+char *numeric = "-1234567890";
+char *whitespace = " \t\n";
+void u_eval(char *p) {
+  int pos = 0;
+  for(;;) {
+    char c = *p++;
+    if(!c) return;
+    if(char_in_str(c, whitespace)) {
+      // Skip whitespace
+      continue;
+    } else if(char_in_str(c, numeric)) {
+      // Tokenise integers
+      int negative = 0;
+      int result = 0;
+      if(c == '-') {
+        int negative = 1;
+        c = *p++;
+      }
+      do {
+        result = result * 10 + c - '0';
+        c = *p++;
+      } while(char_in_str(c, numeric));
+      result = negative ? -result : result;
+      push_int(result);
+    } else if(c == '"') {
+      c = *p++;
+      int len = 0;
+      while(c != '"') {
+        if(c == '\\') {
+          c = *p++;
+        }
+        push_short_int(c);
+        ++len;
+        c = *p++;
+      }
+      push_int(len);
+      u_run((uint8_t[]){u_NEW_STRING, u_QUIT});
+    } else {
+      // Tokenise Symbols
+      char buf[20];
+      char *cp = buf;
+      do {
+        *cp = c;
+        c = *p++;
+      } while(!char_in_str(c, whitespace));
+    }
+  }
+}
 //{{{1 Main
 #ifdef __ULANG_MAIN__
 int main() {
@@ -244,6 +329,7 @@ int main() {
   u_run((uint8_t[]){u_TUPLE, 2, u_TUPLE, 3, u_QUIT});
   memdump(stdout);
   u_gc(0);
+  push_string("hello\n");
   memdump(stdout);
 
   printf("stop\n");

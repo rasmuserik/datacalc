@@ -7,11 +7,23 @@ word_t u_run(uint8_t *ip) {
   word_t *h = heap;
   int i, j;
   word_t w, v;
+  char *cp;
   for(;;) {
-    assert(heap + heaptop < stack);
+    ensure_stack_space();
     switch(*ip++) {
       case u_QUIT:
         return 0;
+      break;
+      case u_NEW_STRING:
+        i = word_to_int(*stack++);
+        u_malloc(STRING_TYPE, 0, i);
+        cp = (char *) (heap + word_to_heap_index(*stack) + 3);
+        printf("NEW_STRING %d %d\n", i, *cp);
+        for(j = 0; j < i; ++j) {
+          cp[j] = (char) word_to_int(stack[i - j]);
+        }
+        stack[i] = stack[0];
+        stack += i;
       break;
       case u_HELLO:
         printf("Hello\n");
@@ -52,3 +64,17 @@ word_t u_run(uint8_t *ip) {
     }
   }
 }
+char *u_ops[] = {
+  "QUIT",
+  "NEW_STRING",
+  "HELLO",
+  "PUSH_INT",
+  "LOG_INT",
+  "POP",
+  "DUP",
+  "ADD",
+  "PUSH_N",
+  "TUPLE",
+  0
+};
+ 

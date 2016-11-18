@@ -46,8 +46,11 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
 - Stack machine
   - code
     - continuation passing style stack machine
+      - function-call call/cc
+      - `(fn [x] val)` written as `(fn [x k] val)` which actually translates to `(fn [x k] (cps k val)`. "Return" is done with `(cps k result)`.
+        - where `(defn cps [k & args] ...)` drops stack frame, retaining only args, and jumps to k
+      - how closures with compact code
     - all (mutually recursive) code in module, save in same generation in heap, to allow garbage collection despite cyclic references
-
 
 #+BEGIN_EXAMPLE
   core.import(while end world then call push ++ <)

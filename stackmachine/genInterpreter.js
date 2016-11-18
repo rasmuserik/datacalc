@@ -33,13 +33,16 @@ word_t u_run(uint8_t *ip) {
   word_t *h = heap;
   int i, j;
   word_t w, v;
+  char *cp;
   for(;;) {
-    assert(heap + heaptop < stack);
+    ensure_stack_space();
     switch(*ip++) {`;
+var opNames = [];
 
 for(var i = 0; i < ops.length; ++i) {
   var op = ops[i];
   hFile += `#define u_${op.name} ${i}\n`;
+  opNames.push(`"${op.name}",`);
   cFile += `
       case u_${op.name}:
 ${op.code}
@@ -52,7 +55,11 @@ hFile += `
 cFile += `
     }
   }
-}`;
+}
+char *u_ops[] = {
+  ${opNames.join("\n  ")}
+  0
+};\n `;
 //console.log(cFile);
 fs.writeFileSync("ops.h", hFile);
 fs.writeFileSync("ops.impl", cFile);
