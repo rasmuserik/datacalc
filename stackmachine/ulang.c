@@ -1,3 +1,4 @@
+//#define NDEBUG 1 //1KB
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -108,7 +109,11 @@ size_t chunk_type(size_t idx) {//{{{2
 size_t chunk_size(size_t idx) {//{{{2
   return 3 + chunk_ptr_count(idx) + (1 + chunk_byte_count(idx)) / 2;
 }
-//{{{1 Garbage Collector
+//{{{1 Garbage Collector 1KB
+//#define NO_GC
+#ifdef NO_GC
+void u_gc(size_t generation) {}
+#else
 void visit(size_t *unvisited_top, word_t *p) {//{{{2
     if(word_is_ptr(*p)) {
       size_t idx = word_to_chunk(*p);
@@ -186,7 +191,8 @@ void u_gc(size_t generation) {//{{{2
   u_address_update(generation);
   u_compact(generation);
 }
-//{{{1 memdump
+#endif /* NO_GC */
+//{{{1 memdump 1KB
 //#define NO_MEMDUMP
 #ifdef NO_MEMDUMP
 void memdump(FILE *f) {
@@ -389,9 +395,9 @@ uint32_t word_hash(word_t w) { //{{{2
 #define HAMT_REMOVE_HAMT 6
 word_t update_hamt(int type, chunk_t src, int pos, int bit, word_t w1, word_t w2) { //{{{2
   // this should be more like
-  // src: 1 2 a  d   b 2 2  1 1
+  // src: 1 2 a  d   b 2 2  1 1 MASK1 MASK2
   //
-  // for(i = 0; i < dst_len; ++i) {
+  // for(i = 0; i < dst_len + 2; ++i) {
   //   dstp[i] = i < a 
   //             ? srcp[i]
   //             : (
@@ -406,7 +412,7 @@ word_t update_hamt(int type, chunk_t src, int pos, int bit, word_t w1, word_t w2
   // if(pos2 < 1000) {
   //   dstp[pos2 < 0 ? dst_len - i : i] = w2;
   // }
-  int src_len= chunk_ptr_count(src);
+  int src_len = chunk_ptr_count(src);
   switch(type) {
     case HAMT_ADD_VALUE:
       {
