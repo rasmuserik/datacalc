@@ -7,8 +7,8 @@ cons-cells, 32 bit
 8 * 4 = 24K;
 
 types:
-1. list (cons-cell)
-2. key/val (cons-cell)
+1. 4bit car-type 2x 14bit ptr
+2. red-black (cons-cell)
 3. atom
 4. string
 5. short-int
@@ -20,6 +20,10 @@ types:
 2. 
 3.
 4.
+
+
+HAMT insert:
+if collision
 
 The core language:
 (def num 123);

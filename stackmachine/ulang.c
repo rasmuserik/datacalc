@@ -365,6 +365,24 @@ int deep_equal(word_t w1, word_t w2) {
   return true;
 }
 //{{{1 HAMT
+//
+// TODO:
+// 
+// - new generic update_hamt
+// - update HAMT to four options
+//
+// - three options:
+//   - single key/val
+//   - hash-collision: link to 
+//
+// Data-types
+// - HAMT-node:
+//   - bitmap
+//   - pointers
+// - result-node
+//   - key
+//   - val
+//   - [next] (if hash collision)
 void empty_hamt() {//{{{2
   u_malloc(HAMT_TYPE, 0, 2 * BYTES_PER_WORD);
   word_t *chunk = heap + word_to_chunk(*stack);
