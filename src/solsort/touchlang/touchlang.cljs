@@ -29,7 +29,7 @@
    (let [total-width js/window.innerWidth
          total-height js/window.innerHeight
 
-         scrollbar-size (if (= -1 (.indexOf js/navigator.userAgent "Mobile")) 17 0)
+         scrollbar-size (if (= -1 (.indexOf js/navigator.userAgent "Mobile")) 17 4)
          spacing (+ 4 (* 2 scrollbar-size))
 
          min-item-height 36
@@ -78,11 +78,11 @@
              :top 0
              :right 0
              :bottom bottom-height}
-            {:bottom (- bottom-height (* bar-height 1))
+            {:bottom (- bottom-height (* bar-height 2))
              :left 0
              :right 0
              :height bar-height}
-            {:bottom (- bottom-height (* bar-height 2))
+            {:bottom (- bottom-height (* bar-height 1))
              :left 0
              :right 0
              :height bar-height}
@@ -114,12 +114,18 @@
       {:margin 0 :padding 0 :background :black}
       ".expr"
       (into expr
-            {:background "#eef"
+            {:background :black
              :overflow :auto
              :white-space :nowrap
-             :padding-left 10
-             :padding-right 10
              :text-align :left})
+      ".innerExpr"
+       {:position :absolute
+        :top "50%"
+        :font-size item-height
+        :margin-top (* -0.5 item-height)
+        :margin-left 2
+        :margin-right 2
+        }
       ".actions"
       (into actions
             {:background :white
@@ -127,8 +133,11 @@
              :overflow :hidden
              :vertical-align :middle
         ;:box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+             :box-sizing :border-box
              :outline "1px solid black"
-             :padding-top (* .5 scrollbar-size)})
+             :padding-top (* .5 scrollbar-size)
+             ;:box-shadow "inset 0px 0px 8px 4px black"
+             })
       ".actions > img"
       {:width (+ action-hpad action-size)
        :height (+ action-size action-vpad)
@@ -140,6 +149,7 @@
       ".fns"
       (into fns
             {:background "#000"
+             :text-align :center
              :outline "1px solid black"})
       ".main"
       (into main
@@ -147,10 +157,12 @@
       ".objs"
       (into objs
             {:background "black"
+             :text-align :center
              :outline "1px solid black"})
       :.entry
       {:display :inline-block
        :text-align :left
+       :vertical-align :middle
        :white-space :nowrap
        :overflow :hidden
        :background :white
@@ -189,15 +201,28 @@
     :on-click f}])
 (defn expr []
   [:div.expr
-   [:div.entry
-    "result"]
-   "<-"
-   [:div.entry "o0"]
-   [:div.entry "function"]
-   [:div.entry "o1"]
-   [:div.entry "o2"]
-   [:div.entry "on"]
-   "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"])
+   [:div.innerExpr
+    
+    
+    [:div.entry
+     "result"]
+    [:b {:style {:font-size 30
+                 :color :white}
+         :vertical-align :middle
+         }
+                                        ;"\u22ee"
+     "="
+                                        ;" \u00AB "
+     ]
+    [:div.entry "o0"]
+    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "."]
+    [:div.entry "function"]
+    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "("]
+    [:div.entry "o1"]
+    [:div.entry "o2"]
+    [:div.entry "on"]
+    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]
+   ])
 (defn main []
   [:div.main
    (cond
