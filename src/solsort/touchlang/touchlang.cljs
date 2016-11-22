@@ -16,6 +16,21 @@
    [clojure.string :as string :refer [replace split blank?]]
    [cljs.core.async :refer [>! <! chan put! take! timeout close! pipe]]))
 
+;;; sample data
+(db! [:graph]
+     [{:fn "Literal" :args ["34"]}
+      {:fn "Literal" :args ["12"]}
+      {:fn "+" :args [0 1]}
+      {:fn "Literal" :args ["Hello"]}
+      {:fn "+" :args [2 3]}])
+(db! [:expr] 2)
+(db! [:selected] 0)
+(def world
+  #js {"functions"
+       (fn []
+         {"Literal" (fn [a b] b)})})
+
+;; styling
 (defn hash-color-light [s]
   (str "#"
        (-> s
@@ -24,7 +39,6 @@
            (bit-or 0x1b0b0b0)
            (.toString 16)
            (.slice 1))))
-
 (defn styling []
   (load-style!
    (let [total-width js/window.innerWidth
@@ -120,13 +134,12 @@
              :white-space :nowrap
              :text-align :left})
       ".innerExpr"
-       {:position :absolute
-        :top "50%"
-        :font-size item-height
-        :margin-top (* -0.5 item-height)
-        :margin-left 2
-        :margin-right 2
-        }
+      {:position :absolute
+       :top "50%"
+       :font-size item-height
+       :margin-top (* -0.5 item-height)
+       :margin-left 2
+       :margin-right 2}
       ".actions"
       (into actions
             {:background :white
@@ -138,7 +151,7 @@
              :outline "1px solid black"
              :padding-top (* .5 scrollbar-size)
              ;:box-shadow "inset 0px 0px 8px 4px black"
-             })
+})
       ".actions > img"
       {:width (+ action-hpad action-size)
        :height (+ action-size action-vpad)
@@ -177,114 +190,84 @@
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
 (styling)
 
-(deftype Number [val]
-  Object
-  (add [_ y] (Number. (+ val (.-val y))))
-  (sub [_ y] (Number. (- val (.-val y))))
-  (mul [_ y] (Number. (* val (.-val y))))
-  (availableProps [_] {"inc" ["add" ["literal" 1]]
-                       "dec" ["sub" ["literal" 1]]})
-  (toJSON [_] #js ["value" val])
-  (toString [_] (str val)))
-(deftype String [val]
-  Object
-  (toJSON [_] #js ["value" val])
-  (toString [_] (str val)))
 
-
-(def world
-  #js{"functions"
-      (fn []
-        {"literal" (fn [a b] b)})})
-
+;; Eval
 (defonce needs-eval (atom #{1 2 3}))
 (defn update-node [i]
-    (when (number? i)
-      (swap! needs-eval conj i)
-      (doall (for [child (filter number? (db [:graph i :args]))]
-                (db! [:graph child :deps]
-                     (conj (db [:graph child :deps] #{}) i))))
-       (db! [:graph i :deps]
-            (into
-             #{}
-             (filter
-              #((into #{} (db [:graph % :args] #{})) i)
-              (db [:graph i :deps] []))))))
-
-(db! [:graph]
-    [{:fn "Literal" :args ["34"]}
-     {:fn "Literal" :args ["12"]}
-     {:fn "+" :args [0 1]}
-    {:fn "Literal" :args ["Hello"]}
-    {:fn "+" :args [2 3]}]
-    )
-(doall (for [i (range (count (db [:graph])))] (update-node i)))
-(doall (for [i (range (count (db [:graph])))] (update-node i)))
-
-(db [:graph])
+  (when (number? i)
+    (swap! needs-eval conj i)
+    (doall (for [child (filter number? (db [:graph i :args]))]
+             (db! [:graph child :deps]
+                  (conj (db [:graph child :deps] #{}) i))))
+    (db! [:graph i :deps]
+         (into
+          #{}
+          (filter
+           #((into #{} (db [:graph % :args] #{})) i)
+           (db [:graph i :deps] []))))))
+(defn typename [o]
+  (let [t (type o)]
+    (or
+     (nil? o)
+     (.-name t)
+     (aget t "cljs$lang$ctorStr"))))
+(defonce function-table
+  (atom
+   {nil
+    {"world" (fn [] world)}
+    "Number"
+    {"+" +
+     "-" -
+     "*" *
+     "/" /}
+    "String"
+    {"Literal" #(js->clj (try (JSON.parse %)
+                              (catch js/Error e %)))}}))
 (defn functions [o]
-  (if (fn? (.-functions o))
+  (if (and
+       (not (nil? o))
+       (fn? (.-functions o)))
     (.function o)
-    (cond
-      (nil? o)
-      {"world" (fn [] world)
-       }
-      (number? o)
-      {"+" +
-       "-" -
-       "*" *
-       "/" /
-       }
-      (string? o)
-      {"Literal" #(js->clj (try (JSON.parse %)
-                                (catch js/Error e %)
-                                ))}
-      )))
-
+    (log (get @function-table (log (typename o))))))
 (defonce evaluating (atom false))
 (defonce eval-seq (atom 0))
 (defn eval-loop []
   (reset! evaluating true)
 
-      (if (empty? @needs-eval)
-     (reset! evaluating false)
-     (let [i (first @needs-eval)
-           ]
-       (swap! needs-eval disj i) 
-       (js/setTimeout eval-loop 0)
-       (let [node (db [:graph i])
-             args (log (map #(if (string? %) % (get (db [:graph %]) :val)) (:args node)))
-             f (get (into {} (functions (first args))) (log (:fn node)) (fn [] (js/Error "Invalid function")))
-             val (apply f args)
+  (if (empty? @needs-eval)
+    (reset! evaluating false)
+    (let [i (first @needs-eval)]
+      (swap! needs-eval disj i) 
+      (js/setTimeout eval-loop 0)
+      (let [node (db [:graph i])
+            args (log (map #(if (string? %) % (get (db [:graph %]) :val)) (:args node)))
+            f (get (into {} (functions (first args))) (log (:fn node)) (fn [] (js/Error "Invalid function")))
+            val (apply f args)
 
-             node (if (= val (:val node))
-                    node
+            node (if (= val (:val node))
+                   node
                    (into node
                          {:val val
                           :seq (swap! eval-seq inc)}))]
-         (doall
-          (for [dep (get node :deps [])]
-            (when (< (db [:graph dep :seq] js/Number.POSITIVE_INFINITY) (:seq node))
-              (swap! needs-eval conj dep))))
-         (db! [:graph i] node)
-         (log "evalled" i node))
-       )))
+        (doall
+         (for [dep (get node :deps [])]
+           (when (< (db [:graph dep :seq] js/Number.POSITIVE_INFINITY) (:seq node))
+             (swap! needs-eval conj dep))))
+        (db! [:graph i] node)
+        (log "evalled" i node)))))
 
-(db! [:graph 0 :args] ["999"])
-(swap! needs-eval conj 0)
+(doall (for [i (range (count (db [:graph])))] (update-node i)))
+(doall (for [i (range (count (db [:graph])))] (update-node i)))
 (eval-loop)
-
-
+;; UI
 (defn execute [expr]
   (js/console.log 'execute expr))
 (defn begin-form [id]
   (js/console.log 'begin-form id))
-
 (defn action-button [id f]
   [:img.icon
    {:src (str "assets/icons/noun_" id ".svg")
     :on-click f}])
-
 (defn expr []
   [:div.expr
    [:div.innerExpr
@@ -301,10 +284,7 @@
     [:div.entry "o1"]
     [:div.entry "o2"]
     [:div.entry "on"]
-    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]
-   ])
-
-(log (db [:data]))
+    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]])
 (defn main []
   [:div.main
    (cond
@@ -314,16 +294,16 @@
        (fn [e]
          (.preventDefault e)
          (let [val (db [:ui :value] "")]
-           (db! [:data]
-                (conj (db [:data] [])
-                      {:code val
-                       :val val})))
+           (db! [:graph]
+                (conj (db [:graph] [])
+                      {:fn "Literal"
+                       :args [val]})))
          (db! [:ui :input]))}
       [:textarea
        {:auto-focus true
         :on-change
         (fn [e]
-          (db! [:ui :value] (String. (-> e (.-target) (.-value)))))}]
+          (db! [:ui :value] (str (-> e (.-target) (.-value)))))}]
       [:input
        {:type :submit}]]
      (= (db [:ui :input]) :number)
@@ -332,15 +312,15 @@
        (fn [e]
          (.preventDefault e)
          (let [val (db [:ui :value] 0)]
-           (db! [:data]
-                (conj (db [:data] [])
-                      {:code val
-                       :val val})))
+           (db! [:graph]
+                (conj (db [:graph] [])
+                      {:fn "Literal"
+                       :args [val]})))
          (db! [:ui :input]))}
       [:input
        {:auto-focus true
         :inputmode :numeric
-        :on-change (fn [e] (db! [:ui :value] (Number. (js/parseFloat (-> e (.-target) (.-value))))))}]
+        :on-change (fn [e] (db! [:ui :value] (js/parseFloat (-> e (.-target) (.-value)))))}]
       #_[:input
          {:type :submit}]]
      :else [:div "obj"])])
@@ -353,40 +333,26 @@
        [:div.entry
         {:on-click #(db! [:ui :current] i)
          :class (if (= i (db [:ui :current])) "current" "")}
-        (JSON.stringify (clj->js (get o :code ""))) [:br] (str (get o :val ""))])
-     (db [:data] [])))))
+        (get o :val) [:br]
+        (str (get o :fn) (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))
+         [:br] (typename (get o :val ""))])
+     (db [:graph] [])))))
 (defn fns [o]
   (into [:div.fns]
-        (for [v
-              (sort (remove #{"constructor"}
-                            (js->clj (js/Object.getOwnPropertyNames
-                                      (.-prototype (.-constructor o))))))]
+        (for [[name f]
+              (functions o)
+              ]
           [:div.fn.entry
-           {:on-click #(begin-form v)
+           {:on-click #(begin-form name)
             :style
-            {:background-color (hash-color-light v)}}
-           [:strong v] [:br]
-           [:em "..."]])))
-(defn availableProps [o]
-  (sort
-   (if (aget o "availableProps")
-     (js->clj (.availableProps o))
-     (for [name (js->clj (js/Object.getOwnPropertyNames o))]
-       [name ["get" name]]))))
-(defn props [o]
-  (into [:div.props]
-        (for [[k v] (availableProps o)]
-          [:div.fn
-           {:on-click #(execute v)
-            :style
-            {:background-color (hash-color-light k)}}
-           [:strong k] [:br]
-           [:em (str v)]])))
+            {:background-color (hash-color-light name)}}
+           [:strong name] [:br]
+           [:em (str (f o))]])))
 (defn actions []
   [:div.actions
    #_[action-button 593402
       (fn []
-        (db! [:ui :current] (count (db [:data] [])))
+        (db! [:ui :current] (count (db [:graph] [])))
         (db! [:ui :input] :number))]
    [action-button 605398
     (fn []
@@ -394,22 +360,21 @@
       (js/setTimeout styling 0))]
    [action-button "47250_num"
     (fn []
-      (db! [:ui :current] (count (db [:data] [])))
+      (db! [:ui :current] (count (db [:graph] [])))
       (db! [:ui :input] :number))]
    [action-button 47250
     (fn []
-      (db! [:ui :current] (count (db [:data] [])))
+      (db! [:ui :current] (count (db [:graph] [])))
       (db! [:ui :input] :string))]
    [action-button "209279_rotate" #(js/console.log "fn")]
    [action-button 593402 #(js/console.log "world")]
    [action-button 684642 #(js/console.log "delete")]
    [action-button 619343 #(js/console.log "ok")]])
 (defn ui []
-  (let [obj (db [:data (db [:ui :current] -1)] {})
+  (let [obj (db [:graph (db [:ui :current] -1)] {})
         val (get obj :val #js {})]
     [:div
      [main obj]
-     [props val]
      [fns val]
      [objs]
      [expr]
