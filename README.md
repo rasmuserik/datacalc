@@ -1,4 +1,4 @@
-# touchlang ![](https://touchlang.solsort.com/icon-small.png)
+# data-calc ![](https://data-calc.solsort.com/icon-small.png)
 
 The purpose is to make a touch-oriented tool/programming environment for interacting with data, and making apps.
 
