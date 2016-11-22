@@ -17,26 +17,6 @@
    [cljs.core.async :refer [>! <! chan put! take! timeout close! pipe]]))
 
 
-(def layouts
-  [[[0 .0 1 .1]
-    [0 .1 1 .5]
-    [0 .6 .25 1]
-    [.25 .6 .5 1]
-    [.5 .6 1 1]
-    [0 .5 1 .6]]
-   [[0 .0 1 .1]
-    [.25 .1 1 .7]
-    [0 .1 .25 .4]
-    [0 .4 .25 .7]
-    [0 .8 1 1]
-    [0 .7 1 .8]]
-   [[0 .0 1 .1]
-    [.2 .1 .8 .9]
-    [0 .1 .2 .5]
-    [0 .5 .2 .9]
-    [.8 .1 1 .9]
-    [0 .9 1 1]]
-   ])
 (defn hash-color-light [s]
   (str "#"
        (-> s
@@ -50,44 +30,117 @@
   (load-style!
    (let [total-width js/window.innerWidth
          total-height js/window.innerHeight
-         sexpr-height 36
-         h total-height
-         w total-width
-         ratio 0.6
-         [sexpr main props fns objs actions]
+
+         scrollbar-size (if (= -1 (.indexOf js/navigator.userAgent "Mobile")) 17 0)
+         spacing (+ 4 (* 2 scrollbar-size))
+
+         min-item-height 36
+         item-ratio 1.666666
+         items-per-width (Math.floor (/ (- total-width spacing) (* item-ratio min-item-height)))
+         items-left (Math.floor (* 0.5 items-per-width))
+         item-width (Math.floor (/ (- total-width spacing)
+                                   items-per-width))
+         bar-width (+ item-width scrollbar-size)
+
+         item-height (/ item-width item-ratio)
+         bar-height (+ item-height scrollbar-size)
+         actual-spacing (Math.floor (* 0.5
+                                       (- total-width
+                                          (* items-per-width
+                                             item-width))))
+         bottom-height (* item-height
+                          (Math.ceil
+                           (* 0.6 (/ total-height item-height))))
+         landscape (< (* 1.1 total-height) total-width)
+         [main sexpr actions fns objs]
+         (if landscape
+           [{:left bar-width
+             :top bar-height
+             :width (- total-width (* 2 bar-width))
+             :height (- total-height (* 2 bar-height))}
+            {:top 0
+             :left bar-width
+             :height bar-height
+             :right bar-width}
+            {:bottom 0
+             :left bar-width
+             :height bar-height
+             :right bar-width}
+            {:top 0
+             :bottom 0
+             :left 0
+             :text-align :right
+             :width bar-width}
+             {:top 0
+              :bottom 0
+              :text-align :left
+              :right 0
+              :width bar-width}
+            ]
+           [{:left 0
+            :top 0
+            :right 0
+            :bottom bottom-height
+            }
+            {:bottom (- bottom-height (* bar-height 1))
+             :left 0
+             :right 0
+             :height bar-height
+             }
+            {:bottom (- bottom-height (* bar-height 2))
+             :left 0
+             :right 0
+             :height bar-height
+             }
+            {:height (- bottom-height (* bar-height 2))
+             :left 0
+             :text-align :left
+             :width (+ actual-spacing (* items-left item-width))
+             :bottom 0
+             }
+            {:height (- bottom-height (* bar-height 2))
+             :right 0
+             :text-align :right
+             :width (+ actual-spacing (* (- items-per-width items-left) item-width))
+             :bottom 0
+             }
+            ]
+           )
+         [sexpr main fns objs actions]
          (map
-          (fn [[x0 y0 x1 y1]] {:display :inline-block
-                               :position :absolute
-                               :overflow :auto
-                               :left (* w x0) :top (* h y0)
-                               :width (* w (- x1 x0))
-                               :height (* h (- y1 y0))
-                               :right (- w (* w x1)) :bottom (- h (* h y1))})
-          (get layouts (mod (db [:ui :layout] 0) (count layouts))))
+          #(into %
+                 {:display :inline-block
+                  :position :absolute
+                  :overflow :auto})
+          [sexpr main fns objs actions])
          action-count 7
-         action-size (* 0.8 (min (:height actions) (/ (:width actions) action-count)))
-         action-hpad (- (/ (:width actions) action-count) action-size)
-         action-vpad (- (:height actions) action-size)
+         action-size item-height
+         action-hpad (- (/ (if landscape (- total-width (* 2 bar-width)) total-width) action-count) action-size)
+         action-vpad 0
          entries-per-line (max 1 (js/Math.floor (/ (:width objs) 80)))
          entry-width (/ (:width objs) entries-per-line)
          entry-height (* 0.5 entry-width)
          ]
      {"body"
-      {:margin 0 :padding 0}
+      {:margin 0 :padding 0 :background :black}
       ".sexpr"
       (into sexpr
         {:background "#eef"
         :overflow :auto
+         :white-space :nowrap
         :padding-left 10
         :padding-right 10
-        :box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+        :text-align :left
         })
       ".actions"
       (into actions
         {:background :white
         :text-align :center
          :overflow :hidden
-        :box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+         :vertical-align :middle
+        ;:box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
+         :outline "1px solid black"
+         :padding-top (* .5 scrollbar-size)
         })
       ".actions > img"
       {:width (+ action-hpad action-size)
@@ -98,14 +151,9 @@
        :padding-right (* .5 action-hpad)
        :margin 0
        }
-      ".props"
-      (into props
-            {;:background "#000"
-             :outline "1px solid black"
-             })
       ".fns"
       (into fns
-            {;:background "#000"
+            {:background "#000"
              :outline "1px solid black"
              })
       ".main"
@@ -113,17 +161,19 @@
             {:background "#ccf"})
       ".objs"
       (into objs
-            {:background "#ffc"
+            {:background "black"
              :outline "1px solid black"
              })
       :.entry
       {:display :inline-block
+       :text-align :left
        :white-space :nowrap
        :overflow :hidden
-       :font-size (* entry-height 0.3)
-       :line-height (/ entry-height 3)
-       :width entry-width
-       :height entry-height
+       :background :white
+       :font-size (* item-height 0.3)
+       :line-height (/ item-height 3)
+       :width item-width
+       :height item-height
        :outline "1px solid black"}})
    :styling))
 (js/window.addEventListener "resize" styling)
@@ -158,6 +208,14 @@
   )
 (defn sexpr []
   [:div.sexpr
+   [:div.entry
+    "result"]
+   "<-"
+   [:div.entry "o0"]
+   [:div.entry "function"]
+   [:div.entry "o1"]
+   [:div.entry "o2"]
+   [:div.entry "on"]
    "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"]
   )
 (defn main []
@@ -216,7 +274,7 @@
               (sort (remove #{"constructor"}
                        (js->clj (js/Object.getOwnPropertyNames
                                  (.-prototype (.-constructor o))))))]
-          [:div.fn
+          [:div.fn.entry
            {:on-click #(begin-form v)
             :style
             {:background-color (hash-color-light v)}
