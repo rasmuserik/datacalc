@@ -18,11 +18,13 @@
 
 ;;; sample data
 (db! [:graph]
-     [{:fn "Literal" :args ["34"]}
-      {:fn "Literal" :args ["12"]}
-      {:fn "+" :args [0 1]}
-      {:fn "Literal" :args ["Hello"]}
-      {:fn "+" :args [2 3]}])
+     [{:fn "Literal" :args ["34"] :id "a"}
+      {:fn "Literal" :args ["12"] :id "b"}
+      {:fn "+" :args [0 1] :id "c"}
+      {:fn "Literal" :args ["Hello"] :id "d"}
+      {:fn "+" :args [2 3] :id "e"}
+      {:fn "+" :args [0 1 2 3 4] :id "f"}
+      ])
 (db! [:expr] 2)
 (db! [:selected] 0)
 (def world
@@ -47,7 +49,7 @@
          scrollbar-size (if (= -1 (.indexOf js/navigator.userAgent "Mobile")) 17 4)
          spacing (+ 4 (* 2 scrollbar-size))
 
-         min-item-height 36
+         min-item-height 40
          item-ratio 1.666666
          items-per-width (Math.floor (/ (- total-width spacing) (* item-ratio min-item-height)))
          items-left (Math.floor (* 0.5 items-per-width))
@@ -174,13 +176,19 @@
              :text-align :center
              :outline "1px solid black"})
       :.entry
-      {:display :inline-block
+      {:position :relative
+       :display :inline-block
        :text-align :left
+       :box-sizing :border-box
+       :border "1px solid black"
+       :border-radius 4
        :vertical-align :middle
+       :padding-left 4
+       :padding-right 4
        :white-space :nowrap
        :overflow :hidden
        :background :white
-       :font-size (* item-height 0.3)
+       :font-size (* item-height 0.25)
        :line-height (/ item-height 3)
        :width item-width
        :height item-height
@@ -268,86 +276,181 @@
   [:img.icon
    {:src (str "assets/icons/noun_" id ".svg")
     :on-click f}])
+(defn obj-entry [o props]
+   (if (string? o)
+     [:div.entry
+      (into {:style {:background-color (hash-color-light "String")
+                     }}
+            props)
+      [:div {:style {:display :flex
+                    :justify-content :center
+                    :flex-direction :column
+                     :position :absolute
+                     :box-sizing :border-box
+                     :align-items :center
+                     :top 0
+                     :left 0
+                     :right 0
+                     :bottom 0
+                     :border "3px double #aaa"
+                     :border-radius 4
+                    :background-color (hash-color-light "String")}}
+       (str o)]]
+     (let [type-string  (typename (get o :val ""))]
+        [:div.entry
+         (into {:style {:background-color (hash-color-light (str (get o :val)) ;type-string ;(:id o)
+                                                            )}}
+               props)
+        [:div 
+          {:style {:text-align :right
+                   :position :absolute
+                   :right 0
+                   :top 0
+                   :padding-left 2
+                   :border-radius 4
+                   :background (hash-color-light type-string)
+                   }}
+          type-string "\u00a0"] [:br]
+        [:div {:style {:font-weight :bold}}(get o :val)]
+         [:div {:style {
+                        :position :absolute
+                        :left 0
+                        :right 0
+                        :bottom 0
+                        :font-style :italic
+                        :background (hash-color-light (:fn o))
+                        }}
+          " \u00a0 "
+           (:fn o)
+          (str (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))]
+        ])))
+(defn fn-entry [name val props]
+  [:div.fn.entry
+   (into
+    {:on-click #(begin-form name)
+     :style
+     {:background-color (hash-color-light name)
+      :position :relative
+      }}
+    props)
+   [:div
+    {:style
+     {
+      :display :flex
+      :justify-content :center
+      :flex-direction :column
+      :position :absolute
+      :text-align :center
+      :top 0
+      :font-weight :bold
+      :bottom "33%"
+      :left 0
+      :right 0}}
+    name]
+   [:div
+    {:style
+     {:text-align :left
+      :position :absolute
+      :left 0
+      :right 0
+      :background (hash-color-light (str val))
+      :bottom 0}}
+    " \u00a0 " [:span {:style {:background (hash-color-light (str val))}}(str val)]
+    ]])
 (defn expr []
-  [:div.expr
-   [:div.innerExpr
-    [:div.entry
-     "result"]
-    [:b {:style {:font-size 30
-                 :color :white}
-         :vertical-align :middle}
-     "="]
-    [:div.entry "o0"]
-    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "."]
-    [:div.entry "function"]
-    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "("]
-    [:div.entry "o1"]
-    [:div.entry "o2"]
-    [:div.entry "on"]
-    [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]])
+  (let [o (db [:graph (db [:expr])])]
+   [:div.expr
+    [:div.innerExpr
+     (obj-entry o {:on-click #(db! [:selected] :obj)})
+     [:b {:style {:font-size 30
+                  :color :white}
+          :vertical-align :middle}
+      "="]
+     (fn-entry (get o :fn) (get o :val)
+               {:on-click #(db! [:selected] :fn)}
+               )
+     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "("]
+     (into
+      [:span]
+      (map-indexed
+       (fn [i arg]
+         (if (string? arg)
+          (obj-entry arg {:on-click #(db! [:selected] i)})
+          (obj-entry (db [:graph arg]) {:on-click #(db! [:selected] i)})))
+       (get o :args [])))
+     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]]))
+(defn selected []
+  (let [id (db [:expr])
+        expr (db [:graph id])
+        selected (db [:selected])
+        arg (db [:graph id :args selected])
+        obj (cond
+              (number? selected) (if (string? arg) arg (db [:graph arg] {}))
+              (= :fn selected) (assoc expr :show-fn true)
+              :else expr)
+        ]
+    obj
+    )
+  )
 (defn main []
   [:div.main
-   (cond
-     (= (db [:ui :input]) :string)
-     [:form
-      {:on-submit
-       (fn [e]
-         (.preventDefault e)
-         (let [val (db [:ui :value] "")]
-           (db! [:graph]
-                (conj (db [:graph] [])
-                      {:fn "Literal"
-                       :args [val]})))
-         (db! [:ui :input]))}
-      [:textarea
-       {:auto-focus true
-        :on-change
+   [:strong "Under development, not ready yet"] [:br] [:br]
+    (cond
+      (= (db [:ui :input]) :string)
+      [:form
+       {:on-submit
         (fn [e]
-          (db! [:ui :value] (str (-> e (.-target) (.-value)))))}]
-      [:input
-       {:type :submit}]]
-     (= (db [:ui :input]) :number)
-     [:form
-      {:on-submit
-       (fn [e]
-         (.preventDefault e)
-         (let [val (db [:ui :value] 0)]
-           (db! [:graph]
-                (conj (db [:graph] [])
-                      {:fn "Literal"
-                       :args [val]})))
-         (db! [:ui :input]))}
-      [:input
-       {:auto-focus true
-        :inputmode :numeric
-        :on-change (fn [e] (db! [:ui :value] (js/parseFloat (-> e (.-target) (.-value)))))}]
-      #_[:input
-         {:type :submit}]]
-     :else [:div "obj"])])
+          (.preventDefault e)
+          (let [val (db [:ui :value] "")]
+            (db! [:graph]
+                 (conj (db [:graph] [])
+                       {:fn "Literal"
+                        :args [(str val)]})))
+          (db! [:ui :input]))}
+       [:textarea
+        {:auto-focus true
+         :on-change
+         (fn [e]
+           (db! [:ui :value] (str (-> e (.-target) (.-value)))))}]
+       [:input
+        {:type :submit}]]
+      (= (db [:ui :input]) :number)
+      [:form
+       {:on-submit
+        (fn [e]
+          (.preventDefault e)
+          (let [val (db [:ui :value] 0)]
+            (db! [:graph]
+                 (conj (db [:graph] [])
+                       {:fn "Literal"
+                        :args [(str val)]})))
+          (db! [:ui :input]))}
+       [:input
+        {:auto-focus true
+         :inputmode :numeric
+         :on-change (fn [e] (db! [:ui :value] (js/parseFloat (-> e (.-target) (.-value)))))}]
+       #_[:input
+          {:type :submit}]]
+      :else
+      [:div (str (selected))])])
 (defn objs []
   (into
    [:div.objs]
    (reverse
     (map-indexed
      (fn [i o]
-       [:div.entry
-        {:on-click #(db! [:ui :current] i)
-         :class (if (= i (db [:ui :current])) "current" "")}
-        (get o :val) [:br]
-        (str (get o :fn) (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))
-         [:br] (typename (get o :val ""))])
+       (obj-entry o {:on-click (fn []
+                                 (db! [:selected] :obj)
+                                 (db! [:expr] i))})
+       )
      (db [:graph] [])))))
 (defn fns [o]
   (into [:div.fns]
         (for [[name f]
-              (functions o)
+              (functions (:val o))
               ]
-          [:div.fn.entry
-           {:on-click #(begin-form name)
-            :style
-            {:background-color (hash-color-light name)}}
-           [:strong name] [:br]
-           [:em (str (f o))]])))
+          (fn-entry name (f (:val o)) {})
+          )))
 (defn actions []
   [:div.actions
    #_[action-button 593402
@@ -371,12 +474,11 @@
    [action-button 684642 #(js/console.log "delete")]
    [action-button 619343 #(js/console.log "ok")]])
 (defn ui []
-  (let [obj (db [:graph (db [:ui :current] -1)] {})
-        val (get obj :val #js {})]
+  (let [obj (db [:graph (db [:expr] -1)] {})]
     [:div
-     [main obj]
-     [fns val]
+     [main ]
+     [fns (selected)]
      [objs]
-     [expr]
+     [expr (db [:expr])]
      [actions]]))
 (render [ui])
