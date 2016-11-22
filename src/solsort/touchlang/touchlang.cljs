@@ -16,7 +16,6 @@
    [clojure.string :as string :refer [replace split blank?]]
    [cljs.core.async :refer [>! <! chan put! take! timeout close! pipe]]))
 
-
 (defn hash-color-light [s]
   (str "#"
        (-> s
@@ -24,8 +23,7 @@
            (bit-and 0xffffff)
            (bit-or 0x1b0b0b0)
            (.toString 16)
-           (.slice 1)
-           )))
+           (.slice 1))))
 (defn styling []
   (load-style!
    (let [total-width js/window.innerWidth
@@ -52,7 +50,7 @@
                           (Math.ceil
                            (* 0.6 (/ total-height item-height))))
          landscape (< (* 1.1 total-height) total-width)
-         [main sexpr actions fns objs]
+         [main expr actions fns objs]
          (if landscape
            [{:left bar-width
              :top bar-height
@@ -71,77 +69,66 @@
              :left 0
              :text-align :right
              :width bar-width}
-             {:top 0
-              :bottom 0
-              :text-align :left
-              :right 0
-              :width bar-width}
-            ]
+            {:top 0
+             :bottom 0
+             :text-align :left
+             :right 0
+             :width bar-width}]
            [{:left 0
-            :top 0
-            :right 0
-            :bottom bottom-height
-            }
+             :top 0
+             :right 0
+             :bottom bottom-height}
             {:bottom (- bottom-height (* bar-height 1))
              :left 0
              :right 0
-             :height bar-height
-             }
+             :height bar-height}
             {:bottom (- bottom-height (* bar-height 2))
              :left 0
              :right 0
-             :height bar-height
-             }
+             :height bar-height}
             {:height (- bottom-height (* bar-height 2))
              :left 0
              :text-align :left
              :width (+ actual-spacing (* items-left item-width))
-             :bottom 0
-             }
+             :bottom 0}
             {:height (- bottom-height (* bar-height 2))
              :right 0
              :text-align :right
              :width (+ actual-spacing (* (- items-per-width items-left) item-width))
-             :bottom 0
-             }
-            ]
-           )
-         [sexpr main fns objs actions]
+             :bottom 0}])
+         [expr main fns objs actions]
          (map
           #(into %
                  {:display :inline-block
                   :position :absolute
                   :overflow :auto})
-          [sexpr main fns objs actions])
+          [expr main fns objs actions])
          action-count 7
          action-size item-height
          action-hpad (- (/ (if landscape (- total-width (* 2 bar-width)) total-width) action-count) action-size)
          action-vpad 0
          entries-per-line (max 1 (js/Math.floor (/ (:width objs) 80)))
          entry-width (/ (:width objs) entries-per-line)
-         entry-height (* 0.5 entry-width)
-         ]
+         entry-height (* 0.5 entry-width)]
      {"body"
       {:margin 0 :padding 0 :background :black}
-      ".sexpr"
-      (into sexpr
-        {:background "#eef"
-        :overflow :auto
-         :white-space :nowrap
-        :padding-left 10
-        :padding-right 10
-        :text-align :left
-        })
+      ".expr"
+      (into expr
+            {:background "#eef"
+             :overflow :auto
+             :white-space :nowrap
+             :padding-left 10
+             :padding-right 10
+             :text-align :left})
       ".actions"
       (into actions
-        {:background :white
-        :text-align :center
-         :overflow :hidden
-         :vertical-align :middle
+            {:background :white
+             :text-align :center
+             :overflow :hidden
+             :vertical-align :middle
         ;:box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
-         :outline "1px solid black"
-         :padding-top (* .5 scrollbar-size)
-        })
+             :outline "1px solid black"
+             :padding-top (* .5 scrollbar-size)})
       ".actions > img"
       {:width (+ action-hpad action-size)
        :height (+ action-size action-vpad)
@@ -149,21 +136,18 @@
        :padding-bottom (* .5 action-vpad)
        :padding-left (* .5 action-hpad)
        :padding-right (* .5 action-hpad)
-       :margin 0
-       }
+       :margin 0}
       ".fns"
       (into fns
             {:background "#000"
-             :outline "1px solid black"
-             })
+             :outline "1px solid black"})
       ".main"
       (into main
             {:background "#ccf"})
       ".objs"
       (into objs
             {:background "black"
-             :outline "1px solid black"
-             })
+             :outline "1px solid black"})
       :.entry
       {:display :inline-block
        :text-align :left
@@ -202,12 +186,9 @@
 (defn action-button [id f]
   [:img.icon
    {:src (str "assets/icons/noun_" id ".svg")
-    :on-click f
-    }
-   ]
-  )
-(defn sexpr []
-  [:div.sexpr
+    :on-click f}])
+(defn expr []
+  [:div.expr
    [:div.entry
     "result"]
    "<-"
@@ -216,12 +197,11 @@
    [:div.entry "o1"]
    [:div.entry "o2"]
    [:div.entry "on"]
-   "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"]
-  )
+   "(defn data-view [] (into [:div] (reverse (map-indexed (fn [i o] [:div.entry {:on-click #(db! [:ui :current] i) :class (if (= i (db [:ui :current])) \"current\" \"\")} (JSON.stringify (clj->js (get o :code \"\"))) [:br] (str (get o :val \"\"))]) (db [:data] [])))))"])
 (defn main []
   [:div.main
-  (cond
-    (= (db [:ui :input]) :string)
+   (cond
+     (= (db [:ui :input]) :string)
      [:form
       {:on-submit
        (fn [e]
@@ -239,24 +219,24 @@
           (db! [:ui :value] (String. (-> e (.-target) (.-value)))))}]
       [:input
        {:type :submit}]]
-    (= (db [:ui :input]) :number)
-    [:form
-     {:on-submit
-      (fn [e]
-        (.preventDefault e)
-        (let [val (db [:ui :value] 0)]
-          (db! [:data]
-               (conj (db [:data] [])
-                     {:code val
-                      :val val})))
-        (db! [:ui :input]))}
-     [:input
-      {:auto-focus true
-       :inputmode :numeric
-       :on-change (fn [e] (db! [:ui :value] (Number. (js/parseFloat (-> e (.-target) (.-value))))))}]
-     #_[:input
-        {:type :submit}]]
-    :else [:div "obj"])])
+     (= (db [:ui :input]) :number)
+     [:form
+      {:on-submit
+       (fn [e]
+         (.preventDefault e)
+         (let [val (db [:ui :value] 0)]
+           (db! [:data]
+                (conj (db [:data] [])
+                      {:code val
+                       :val val})))
+         (db! [:ui :input]))}
+      [:input
+       {:auto-focus true
+        :inputmode :numeric
+        :on-change (fn [e] (db! [:ui :value] (Number. (js/parseFloat (-> e (.-target) (.-value))))))}]
+      #_[:input
+         {:type :submit}]]
+     :else [:div "obj"])])
 (defn objs []
   (into
    [:div.objs]
@@ -272,25 +252,20 @@
   (into [:div.fns]
         (for [v
               (sort (remove #{"constructor"}
-                       (js->clj (js/Object.getOwnPropertyNames
-                                 (.-prototype (.-constructor o))))))]
+                            (js->clj (js/Object.getOwnPropertyNames
+                                      (.-prototype (.-constructor o))))))]
           [:div.fn.entry
            {:on-click #(begin-form v)
             :style
-            {:background-color (hash-color-light v)}
-            }
+            {:background-color (hash-color-light v)}}
            [:strong v] [:br]
-           [:em "..."]
-           ]
-          ))
-   )
+           [:em "..."]])))
 (defn availableProps [o]
   (sort
    (if (aget o "availableProps")
      (js->clj (.availableProps o))
      (for [name (js->clj (js/Object.getOwnPropertyNames o))]
-       [name ["get" name]]
-       ))))
+       [name ["get" name]]))))
 
 (defn props [o]
   (into [:div.props]
@@ -298,13 +273,9 @@
           [:div.fn
            {:on-click #(execute v)
             :style
-            {:background-color (hash-color-light k)}
-            }
+            {:background-color (hash-color-light k)}}
            [:strong k] [:br]
-           [:em (str v)]
-           ]
-          ))
-   )
+           [:em (str v)]])))
 
 (defn actions []
   [:div.actions
@@ -315,34 +286,27 @@
    [action-button 605398
     (fn []
       (db! [:ui :layout] (inc (db [:ui :layout] 0)))
-      (js/setTimeout styling 0)
-       )]
+      (js/setTimeout styling 0))]
    [action-button "47250_num"
     (fn []
       (db! [:ui :current] (count (db [:data] [])))
-      (db! [:ui :input] :number))
-    ]
+      (db! [:ui :input] :number))]
    [action-button 47250
     (fn []
       (db! [:ui :current] (count (db [:data] [])))
-      (db! [:ui :input] :string))
-    ]
+      (db! [:ui :input] :string))]
    [action-button "209279_rotate" #(js/console.log "fn")]
    [action-button 593402 #(js/console.log "world")]
    [action-button 684642 #(js/console.log "delete")]
    [action-button 619343 #(js/console.log "ok")]])
 (defn ui []
   (let [obj (db [:data (db [:ui :current] -1)] {})
-        val (get obj :val #js{})]
-   [:div
-    [main obj]
-    [props val]
-    [fns val]
-    [objs]
-    [sexpr]
-    [actions]
-    ])
-  )
-(render
- [ui]
- )
+        val (get obj :val #js {})]
+    [:div
+     [main obj]
+     [props val]
+     [fns val]
+     [objs]
+     [expr]
+     [actions]]))
+(render [ui])
