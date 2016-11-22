@@ -24,6 +24,7 @@
            (bit-or 0x1b0b0b0)
            (.toString 16)
            (.slice 1))))
+
 (defn styling []
   (load-style!
    (let [total-width js/window.innerWidth
@@ -190,6 +191,90 @@
   (toJSON [_] #js ["value" val])
   (toString [_] (str val)))
 
+
+(def world
+  #js{"functions"
+      (fn []
+        {"literal" (fn [a b] b)})})
+
+(defonce needs-eval (atom #{1 2 3}))
+(defn update-node [i]
+    (when (number? i)
+      (swap! needs-eval conj i)
+      (doall (for [child (filter number? (db [:graph i :args]))]
+                (db! [:graph child :deps]
+                     (conj (db [:graph child :deps] #{}) i))))
+       (db! [:graph i :deps]
+            (into
+             #{}
+             (filter
+              #((into #{} (db [:graph % :args] #{})) i)
+              (db [:graph i :deps] []))))))
+
+(db! [:graph]
+    [{:fn "Literal" :args ["34"]}
+     {:fn "Literal" :args ["12"]}
+     {:fn "+" :args [0 1]}
+    {:fn "Literal" :args ["Hello"]}
+    {:fn "+" :args [2 3]}]
+    )
+(doall (for [i (range (count (db [:graph])))] (update-node i)))
+(doall (for [i (range (count (db [:graph])))] (update-node i)))
+
+(db [:graph])
+(defn functions [o]
+  (if (fn? (.-functions o))
+    (.function o)
+    (cond
+      (nil? o)
+      {"world" (fn [] world)
+       }
+      (number? o)
+      {"+" +
+       "-" -
+       "*" *
+       "/" /
+       }
+      (string? o)
+      {"Literal" #(js->clj (try (JSON.parse %)
+                                (catch js/Error e %)
+                                ))}
+      )))
+
+(defonce evaluating (atom false))
+(defonce eval-seq (atom 0))
+(defn eval-loop []
+  (reset! evaluating true)
+
+      (if (empty? @needs-eval)
+     (reset! evaluating false)
+     (let [i (first @needs-eval)
+           ]
+       (swap! needs-eval disj i) 
+       (js/setTimeout eval-loop 0)
+       (let [node (db [:graph i])
+             args (log (map #(if (string? %) % (get (db [:graph %]) :val)) (:args node)))
+             f (get (into {} (functions (first args))) (log (:fn node)) (fn [] (js/Error "Invalid function")))
+             val (apply f args)
+
+             node (if (= val (:val node))
+                    node
+                   (into node
+                         {:val val
+                          :seq (swap! eval-seq inc)}))]
+         (doall
+          (for [dep (get node :deps [])]
+            (when (< (db [:graph dep :seq] js/Number.POSITIVE_INFINITY) (:seq node))
+              (swap! needs-eval conj dep))))
+         (db! [:graph i] node)
+         (log "evalled" i node))
+       )))
+
+(db! [:graph 0 :args] ["999"])
+(swap! needs-eval conj 0)
+(eval-loop)
+
+
 (defn execute [expr]
   (js/console.log 'execute expr))
 (defn begin-form [id]
@@ -199,21 +284,16 @@
   [:img.icon
    {:src (str "assets/icons/noun_" id ".svg")
     :on-click f}])
+
 (defn expr []
   [:div.expr
    [:div.innerExpr
-    
-    
     [:div.entry
      "result"]
     [:b {:style {:font-size 30
                  :color :white}
-         :vertical-align :middle
-         }
-                                        ;"\u22ee"
-     "="
-                                        ;" \u00AB "
-     ]
+         :vertical-align :middle}
+     "="]
     [:div.entry "o0"]
     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "."]
     [:div.entry "function"]
@@ -223,6 +303,8 @@
     [:div.entry "on"]
     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]
    ])
+
+(log (db [:data]))
 (defn main []
   [:div.main
    (cond
@@ -291,7 +373,6 @@
      (js->clj (.availableProps o))
      (for [name (js->clj (js/Object.getOwnPropertyNames o))]
        [name ["get" name]]))))
-
 (defn props [o]
   (into [:div.props]
         (for [[k v] (availableProps o)]
@@ -301,7 +382,6 @@
             {:background-color (hash-color-light k)}}
            [:strong k] [:br]
            [:em (str v)]])))
-
 (defn actions []
   [:div.actions
    #_[action-button 593402
