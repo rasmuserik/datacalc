@@ -1,4 +1,4 @@
-(defproject solsort.touchlang/touchlang "0.0.1-SNAPSHOT"
+(defproject solsort.data-calc/data-calc "0.0.1-SNAPSHOT"
   :license "MIT"
 
   :dependencies
@@ -45,7 +45,7 @@
       :figwheel
       {:websocket-host :js-client-host}
       :compiler
-      {:main solsort.touchlang.touchlang
+      {:main solsort.data-calc.data-calc
        :asset-path "out"
        :output-to "resources/public/index.js"
        :output-dir "resources/public/out"
@@ -54,7 +54,7 @@
      :source-paths ["src" "util/src/"]
      :compiler
      {:output-to "index.js"
-      :main solsort.touchlang.touchlang
+      :main solsort.data-calc.data-calc
       :externs ["util/externs.js"]
       :optimizations :simple
       :pretty-print false}}

@@ -1,4 +1,4 @@
-(ns solsort.touchlang.touchlang
+(ns solsort.data-calc.data-calc
   (:require-macros
    [cljs.core.async.macros :refer [go go-loop alt!]]
    [reagent.ratom :as ratom :refer  [reaction]]
