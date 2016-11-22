@@ -105,10 +105,12 @@
              :height bar-height}
             {:height (- bottom-height (* bar-height 2))
              :left 0
+             :padding-top 4
              :text-align :left
              :width (+ actual-spacing (* items-left item-width))
              :bottom 0}
             {:height (- bottom-height (* bar-height 2))
+             :padding-top 4
              :right 0
              :text-align :right
              :width (+ actual-spacing (* (- items-per-width items-left) item-width))
@@ -128,10 +130,10 @@
          entry-width (/ (:width objs) entries-per-line)
          entry-height (* 0.5 entry-width)]
      {"body"
-      {:margin 0 :padding 0 :background :black}
+      {:margin 0 :padding 0 }
       ".expr"
       (into expr
-            {:background :black
+            {
              :overflow :auto
              :white-space :nowrap
              :text-align :left})
@@ -144,13 +146,12 @@
        :margin-right 2}
       ".actions"
       (into actions
-            {:background :white
+            {
              :text-align :center
              :overflow :hidden
              :vertical-align :middle
         ;:box-shadow "2px 2px 5px rgba(0,0,0,0.5)"
              :box-sizing :border-box
-             :outline "1px solid black"
              :padding-top (* .5 scrollbar-size)
              ;:box-shadow "inset 0px 0px 8px 4px black"
 })
@@ -164,35 +165,36 @@
        :margin 0}
       ".fns"
       (into fns
-            {:background "#000"
-             :text-align :center
-             :outline "1px solid black"})
+            {:text-align :center})
       ".main"
       (into main
-            {:background "#ccf"})
+            {:box-shadow "2px 2px 6px black"
+             :border-radius "4px"
+             :background "#ccf"})
       ".objs"
       (into objs
-            {:background "black"
+            {
              :text-align :center
-             :outline "1px solid black"})
+             })
       :.entry
       {:position :relative
        :display :inline-block
        :text-align :left
        :box-sizing :border-box
-       :border "1px solid black"
+       :margin 2
+       ;:border "1px solid black"
        :border-radius 4
        :vertical-align :middle
        :padding-left 4
        :padding-right 4
        :white-space :nowrap
        :overflow :hidden
-       :background :white
        :font-size (* item-height 0.25)
        :line-height (/ item-height 3)
-       :width item-width
-       :height item-height
-       :outline "1px solid black"}})
+       :width (- item-width 4)
+       :height (- item-height 4)
+       :box-shadow "2px 2px 6px black"
+       }})
    :styling))
 (js/window.addEventListener "resize" styling)
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
@@ -311,7 +313,6 @@
                    :background (hash-color-light type-string)
                    }}
           type-string "\u00a0"] [:br]
-        [:div {:style {:font-weight :bold}}(get o :val)]
          [:div {:style {
                         :position :absolute
                         :left 0
@@ -323,6 +324,10 @@
           " \u00a0 "
            (:fn o)
           (str (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))]
+         [:div {:style {:position :absolute
+                        :top "30%"
+                        :font-weight :bold
+                        }}(get o :val)]
         ])))
 (defn fn-entry [name val props]
   [:div.fn.entry
@@ -363,7 +368,7 @@
     [:div.innerExpr
      (obj-entry o {:on-click #(db! [:selected] :obj)})
      [:b {:style {:font-size 30
-                  :color :white}
+                  }
           :vertical-align :middle}
       "="]
      (fn-entry (get o :fn) (get o :val)
