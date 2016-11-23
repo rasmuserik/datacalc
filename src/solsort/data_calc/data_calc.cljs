@@ -26,7 +26,7 @@
       {:fn "+" :args [0 1 2 3 4] :id "f"}
       ])
 (db! [:expr] 2)
-(db! [:selected] 0)
+(db! [:selected] :obj)
 (def world
   #js {"functions"
        (fn []
@@ -130,7 +130,8 @@
          entry-width (/ (:width objs) entries-per-line)
          entry-height (* 0.5 entry-width)]
      {"body"
-      {:margin 0 :padding 0 }
+      {:background "#eee"
+       :margin 0 :padding 0 }
       ".expr"
       (into expr
             {
@@ -193,9 +194,19 @@
        :line-height (/ item-height 3)
        :width (- item-width 4)
        :height (- item-height 4)
-       :box-shadow "2px 2px 6px black"
-       }})
+       ;:box-shadow "1px 1px 4px rgba(0,0,0,0.5)"
+       :box-shadow "1px 1px 1px 0px black, -1px -1px 1px 0px white"
+       }
+      :.entry.current
+      {:box-shadow "-1px -1px 1px 0px black, 1px 1px 1px 0px white"
+       ;:box-shadow "0px 0px 1px 1px black, 0px 0px 1px 3px white"
+       ;:box-shadow "0px 0px 3px 2px white, 0px 0px 1px 2px blue, 0px 0px 1px 4px #9f9"
+       ;:border "1px solid blue"
+       ;:outline "1px solid blue"
+       }
+      })
    :styling))
+(db [:selected])
 (js/window.addEventListener "resize" styling)
 (js/window.addEventListener "load" #(js/setTimeout styling 0))
 (styling)
@@ -205,6 +216,7 @@
 (defonce needs-eval (atom #{1 2 3}))
 (defn update-node [i]
   (when (number? i)
+    (db! [:graph i :pos] i)
     (swap! needs-eval conj i)
     (doall (for [child (filter number? (db [:graph i :args]))]
              (db! [:graph child :deps]
@@ -279,14 +291,15 @@
    {:src (str "assets/icons/noun_" id ".svg")
     :on-click f}])
 (defn obj-entry [o props]
+  (let [props (assoc props :class-name (log (str "entry " (get props :class-name ""))))]
    (if (string? o)
-     [:div.entry
+     [:div
       (into {:style {:background-color (hash-color-light "String")
                      }}
             props)
       [:div {:style {:display :flex
-                    :justify-content :center
-                    :flex-direction :column
+                     :justify-content :center
+                     :flex-direction :column
                      :position :absolute
                      :box-sizing :border-box
                      :align-items :center
@@ -296,39 +309,39 @@
                      :bottom 0
                      :border "3px double #aaa"
                      :border-radius 4
-                    :background-color (hash-color-light "String")}}
+                     :background-color (hash-color-light "String")}}
        (str o)]]
      (let [type-string  (typename (get o :val ""))]
-        [:div.entry
-         (into {:style {:background-color (hash-color-light (str (get o :val)) ;type-string ;(:id o)
-                                                            )}}
-               props)
+       [:div
+        (into {:style {:background-color (hash-color-light (str (get o :val)) ;type-string ;(:id o)
+                                                           )}}
+              props)
         [:div 
-          {:style {:text-align :right
-                   :position :absolute
-                   :right 0
-                   :top 0
-                   :padding-left 2
-                   :border-radius 4
-                   :background (hash-color-light type-string)
-                   }}
-          type-string "\u00a0"] [:br]
-         [:div {:style {
-                        :position :absolute
-                        :left 0
-                        :right 0
-                        :bottom 0
-                        :font-style :italic
-                        :background (hash-color-light (:fn o))
-                        }}
-          " \u00a0 "
-           (:fn o)
-          (str (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))]
-         [:div {:style {:position :absolute
-                        :top "30%"
-                        :font-weight :bold
-                        }}(get o :val)]
-        ])))
+         {:style {:text-align :right
+                  :position :absolute
+                  :right 0
+                  :top 0
+                  :padding-left 2
+                  :border-radius 4
+                  :background (hash-color-light type-string)
+                  }}
+         type-string "\u00a0"] [:br]
+        [:div {:style {
+                       :position :absolute
+                       :left 0
+                       :right 0
+                       :bottom 0
+                       :font-style :italic
+                       :background (hash-color-light (:fn o))
+                       }}
+         " \u00a0 "
+         (:fn o)
+         (str (map #(if (string? %) % (db [:graph % :val])) (get o :args [])))]
+        [:div {:style {:position :absolute
+                       :top "30%"
+                       :font-weight :bold
+                       }}(get o :val)]
+        ]))))
 (defn fn-entry [name val props]
   [:div.fn.entry
    (into
@@ -366,13 +379,15 @@
   (let [o (db [:graph (db [:expr])])]
    [:div.expr
     [:div.innerExpr
-     (obj-entry o {:on-click #(db! [:selected] :obj)})
+     (obj-entry o {:class-name (if (= (db [:selected]) :obj) "current" "")
+                   :on-click #(db! [:selected] :obj)})
      [:b {:style {:font-size 30
                   }
           :vertical-align :middle}
       "="]
      (fn-entry (get o :fn) (get o :val)
-               {:on-click #(db! [:selected] :fn)}
+               {:class (if (= (db [:selected]) :fn) "current" "")
+                :on-click #(db! [:selected] :fn)}
                )
      [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "("]
      (into
@@ -380,8 +395,10 @@
       (map-indexed
        (fn [i arg]
          (if (string? arg)
-          (obj-entry arg {:on-click #(db! [:selected] i)})
-          (obj-entry (db [:graph arg]) {:on-click #(db! [:selected] i)})))
+           (obj-entry arg {:class-name (if (=(db [:selected]) i ) "current" "")
+                           :on-click #(db! [:selected] i)})
+          (obj-entry (db [:graph arg]) {:class-name (if (=(db [:selected]) i ) "current" "")
+                                        :on-click #(db! [:selected] i)})))
        (get o :args [])))
      [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]]))
 (defn selected []
@@ -444,7 +461,8 @@
    (reverse
     (map-indexed
      (fn [i o]
-       (obj-entry o {:on-click (fn []
+       (obj-entry o {:class-name (if (= (:pos o) (db [:expr])) "current" "")
+                     :on-click (fn []
                                  (db! [:selected] :obj)
                                  (db! [:expr] i))})
        )
