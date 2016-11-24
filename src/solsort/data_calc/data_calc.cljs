@@ -141,7 +141,7 @@
       ".innerExpr"
       {:position :absolute
        :top "50%"
-       :font-size item-height
+       :font-size (* 0.7 item-height)
        :margin-top (* -0.5 item-height)
        :margin-left 2
        :margin-right 2}
@@ -214,10 +214,12 @@
 
 ;; Eval
 (defonce needs-eval (atom #{1 2 3}))
+(declare eval-loop)
 (defn update-node [i]
   (when (number? i)
     (db! [:graph i :pos] i)
     (swap! needs-eval conj i)
+    (log 'update-node i)
     (doall (for [child (filter number? (db [:graph i :args]))]
              (db! [:graph child :deps]
                   (conj (db [:graph child :deps] #{}) i))))
@@ -226,7 +228,9 @@
           #{}
           (filter
            #((into #{} (db [:graph % :args] #{})) i)
-           (db [:graph i :deps] []))))))
+           (db [:graph i :deps] []))))
+    (js/setTimeout eval-loop 0)
+    ))
 (defn typename [o]
   (let [t (type o)]
     (or
@@ -250,12 +254,12 @@
        (not (nil? o))
        (fn? (.-functions o)))
     (.function o)
-    (log (get @function-table (log (typename o))))))
+    (get @function-table (typename o))))
 (defonce evaluating (atom false))
 (defonce eval-seq (atom 0))
 (defn eval-loop []
   (reset! evaluating true)
-
+  (log 'eval-loop @needs-eval)
   (if (empty? @needs-eval)
     (reset! evaluating false)
     (let [i (first @needs-eval)]
@@ -280,10 +284,7 @@
 
 (doall (for [i (range (count (db [:graph])))] (update-node i)))
 (doall (for [i (range (count (db [:graph])))] (update-node i)))
-(eval-loop)
 ;; UI
-(defn execute [expr]
-  (js/console.log 'execute expr))
 (defn begin-form [id]
   (js/console.log 'begin-form id))
 (defn action-button [id f]
@@ -291,7 +292,7 @@
    {:src (str "assets/icons/noun_" id ".svg")
     :on-click f}])
 (defn obj-entry [o props]
-  (let [props (assoc props :class-name (log (str "entry " (get props :class-name ""))))]
+  (let [props (assoc props :class-name (str "entry " (get props :class-name "")))]
    (if (string? o)
      [:div
       (into {:style {:background-color (hash-color-light "String")
@@ -375,32 +376,30 @@
       :bottom 0}}
     " \u00a0 " [:span {:style {:background (hash-color-light (str val))}}(str val)]
     ]])
+(defn expr-arg [i arg]
+  (if (string? arg)
+    (obj-entry arg {:class-name (if (=(db [:selected]) i ) "current" "")
+                    :on-click #(db! [:selected] i)})
+    (obj-entry (db [:graph arg]) {:class-name (if (=(db [:selected]) i ) "current" "")
+                                  :on-click #(db! [:selected] i)})))
 (defn expr []
   (let [o (db [:graph (db [:expr])])]
    [:div.expr
     [:div.innerExpr
      (obj-entry o {:class-name (if (= (db [:selected]) :obj) "current" "")
                    :on-click #(db! [:selected] :obj)})
-     [:b {:style {:font-size 30
-                  }
-          :vertical-align :middle}
-      "="]
+     "="
+     ;(first (map-indexed expr-arg (get o :args [])))
+     ;"."
      (fn-entry (get o :fn) (get o :val)
                {:class (if (= (db [:selected]) :fn) "current" "")
-                :on-click #(db! [:selected] :fn)}
-               )
-     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} "("]
+                :on-click #(db! [:selected] :fn)})
+     "("
      (into
       [:span]
-      (map-indexed
-       (fn [i arg]
-         (if (string? arg)
-           (obj-entry arg {:class-name (if (=(db [:selected]) i ) "current" "")
-                           :on-click #(db! [:selected] i)})
-          (obj-entry (db [:graph arg]) {:class-name (if (=(db [:selected]) i ) "current" "")
-                                        :on-click #(db! [:selected] i)})))
-       (get o :args [])))
-     [:b {:style {:font-size 30 :color :white} :vertical-align :middle} ")"]]]))
+      (identity (map-indexed expr-arg (get o :args []))))
+     ")"
+     ]]))
 (defn selected []
   (let [id (db [:expr])
         expr (db [:graph id])
@@ -411,7 +410,7 @@
               (= :fn selected) (assoc expr :show-fn true)
               :else expr)
         ]
-    obj
+    (log obj expr arg 'selected)
     )
   )
 (defn main []
@@ -455,6 +454,37 @@
           {:type :submit}]]
       :else
       [:div (str (selected))])])
+(defn new-node [fn args]
+  (let [new-pos (count (db [:graph]))]
+    (db! [:graph new-pos]
+         {:fn fn
+          :args args
+          :pos new-pos
+          :id (random-uuid)})
+    (update-node new-pos)
+    (db! [:expr] new-pos)
+    (db! [:selected] 0)
+    new-pos
+    )
+  )
+(defn obj-click [opos]
+  (let [expr (db [:expr])
+        selected (db [:selected])
+        selected (if (= selected :fn)
+                   -1 selected)]
+    (cond
+      (number? selected)
+      (let [selected (inc selected)
+            [a b] (split-at selected (db [:graph expr :args]))]
+        (db! [:graph expr :args] (into [] (concat a [opos] b)))
+        (db! [:selected] selected)
+        (db! [:graph expr :seq])
+        )
+      (= selected :obj) 
+      (db! [:expr] opos)
+      )
+  (update-node expr)
+  ))
 (defn objs []
   (into
    [:div.objs]
@@ -462,17 +492,31 @@
     (map-indexed
      (fn [i o]
        (obj-entry o {:class-name (if (= (:pos o) (db [:expr])) "current" "")
-                     :on-click (fn []
-                                 (db! [:selected] :obj)
-                                 (db! [:expr] i))})
+                     :on-click #(obj-click i)})
        )
      (db [:graph] [])))))
+(defn fn-click [fn]
+  (let [expr (db [:expr])
+        selected (db [:selected])]
+   (cond
+     (number? selected)
+     (new-node fn [(db [:graph expr :args selected])])
+     (= selected :fn)
+     (do
+       (db! [:graph expr :fn] fn)
+       (update-node expr))
+     (= selected :obj) 
+     (new-node fn [expr])
+     ))
+  (update-node expr)
+  )
 (defn fns [o]
   (into [:div.fns]
         (for [[name f]
               (functions (:val o))
               ]
-          (fn-entry name (f (:val o)) {})
+          (fn-entry name (f (:val o))
+                    {:on-click #(fn-click name)})
           )))
 (defn actions []
   [:div.actions
