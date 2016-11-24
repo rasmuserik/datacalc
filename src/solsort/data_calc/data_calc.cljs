@@ -510,12 +510,27 @@
      ))
   (update-node expr)
   )
+(defn arg-val [o i]
+  (let [arg (get-in o [:args i])]
+    (if (number? arg)
+      (db [:graph arg :val])
+      arg)))
+(defn arg-vals [o]
+  (for [arg (:args o)]
+    (if (string? arg)
+      arg
+      (db [:graph arg :val]))
+    )
+  )
 (defn fns [o]
+  (log 'fns o)
   (into [:div.fns]
         (for [[name f]
-              (functions (:val o))
+              (functions (arg-val o 0))
               ]
-          (fn-entry name (f (:val o))
+          (fn-entry name (f (if (:show-fn o)
+                              (apply f (arg-vals o))
+                              (:val o)))
                     {:on-click #(fn-click name)})
           )))
 (defn actions []
