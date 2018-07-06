@@ -1,4 +1,4 @@
-* Roadmap
+# Roadmap
 
 NB: spineless tagless g-machine
 
@@ -10,7 +10,7 @@ NB: spineless tagless g-machine
 - [ ] simple ui for interacting with the code, append/repl
 - [ ] code for compilation
 
-* Definition of language as data structure
+# Definition of language as data structure
 
 Code is a data flow graph. Special "macros" for loops, function definition/export etc.
 
@@ -52,7 +52,7 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
       - how closures with compact code
     - all (mutually recursive) code in module, save in same generation in heap, to allow garbage collection despite cyclic references
 
-#+BEGIN_EXAMPLE
+```
   core.import(while end world then call push ++ <)
   blah/ooh.import(foo)
 
@@ -78,29 +78,29 @@ Code is a data flow graph. Special "macros" for loops, function definition/expor
 
   block = world.start(f, arr)
   block.end(arr.isEmpty().thenelse([], block.call(f, arr.tail()).push(f.call(arr.head()))))
-#+END_EXAMPLE
+```
 
 
-* Data structure
-** Language as data
+# Data structure
+##  Language as data
 Code as data instead of text.
 
-#+BEGIN_SRC JSON
+```
 {"name": "demo/hello"
 "args": ["a", "b"],
 "code": ["if" ["<" "a" "b"] ["str" "a is smallest"] ["str" "b is smallest"]]}
-#+END_SRC
+``` 
 
 transforms into
 
-#+BEGIN_SRC JavaScript
+```
 function demo$hello(a, b) {
   return a["<"](b) ? "a is smallest" : "b is smallest";
 }
-#+END_SRC
+```
 
-* UI
-** Elements:
+# UI
+## Elements:
 
 - sexpr - The sexpression generating the currently selected object
 - main - Object view: representation of current live object selected, or function + documentation
@@ -114,8 +114,8 @@ function demo$hello(a, b) {
   - delete - backspace one token
   - Make function - select result + parameters in objs to create a new function
 
-** Screens
-#+BEGIN_SRC ditaa :file assets/ui-portrait1.png
+## Screens
+```
 +---------------------+
 | (expr ... )         |
 +---------------------+
@@ -132,8 +132,9 @@ function demo$hello(a, b) {
 +----+------+---------+
 | 123 abc world ...   |
 +---------------------+
-#+END_SRC
-#+BEGIN_SRC ditaa :file assets/ui-portrait2.png
+```
+
+```
 +---------------------+
 | (expr ... )         |
 +---------------------+
@@ -150,8 +151,9 @@ function demo$hello(a, b) {
 +---------------------+
 | 123 abc world ...   |
 +---------------------+
-#+END_SRC
-#+BEGIN_SRC ditaa :file assets/ui-landscape1.png
+```
+
+```
 +---------------------------------+
 | (expr ... )                     |
 +------+-------------------+------+
@@ -163,4 +165,4 @@ function demo$hello(a, b) {
 +------+-------------------+------+
 | 123 abc world ...               |
 +---------------------------------+
-#+END_SRC
+```
